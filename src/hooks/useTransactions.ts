@@ -80,6 +80,36 @@ export function useTransactions() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (transaction: Transaction) => {
+      const { data, error } = await supabase
+        .from("transactions")
+        .update({
+          description: transaction.description,
+          amount: transaction.amount,
+          type: transaction.type,
+          category_id: transaction.category_id,
+          account_id: transaction.account_id,
+          transaction_date: transaction.transaction_date,
+          currency: transaction.currency,
+        })
+        .eq("id", transaction.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["monthly-stats"] });
+      toast({ title: "Transaction updated" });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to update transaction", description: error.message, variant: "destructive" });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (transaction: Transaction) => {
       const { error } = await supabase.from("transactions").delete().eq("id", transaction.id);
@@ -126,7 +156,9 @@ export function useTransactions() {
     categories: categoriesQuery.data || [],
     isLoading: query.isLoading,
     createTransaction: createMutation.mutateAsync,
+    updateTransaction: updateMutation.mutateAsync,
     deleteTransaction: deleteMutation.mutateAsync,
     isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
   };
 }

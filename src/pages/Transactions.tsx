@@ -13,17 +13,42 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { CurrencyInput } from "@/components/ui/currency-input";
-import { Plus, ArrowUpRight, ArrowDownRight, Loader2, Trash2, Target, AlertCircle } from "lucide-react";
+import { Plus, ArrowUpRight, ArrowDownRight, Loader2, Trash2, Target, AlertCircle, Copy, Edit2, ChevronUp, ChevronDown, ArrowUpDown, MoreHorizontal } from "lucide-react";
 import { format } from "date-fns";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
+
+type SortField = "date_created" | "description" | "category" | "type" | "amount" | "transaction_date" | "payment_method" | "frequency";
+type SortOrder = "asc" | "desc";
+
+type EditingTransaction = {
+  id: string;
+  type: "income" | "expense";
+  amount: string;
+  account_id: string;
+  category_id: string;
+  description: string;
+  transaction_date: string;
+} | null;
 
 export default function Transactions() {
-  const { transactions, categories, isLoading, createTransaction, deleteTransaction, isCreating } = useTransactions();
+  const { transactions, categories, isLoading, createTransaction, updateTransaction, deleteTransaction, isCreating, isUpdating } = useTransactions();
   const { accounts } = useAccounts();
   const { goals } = useGoals();
   const { preferredCurrency } = useProfile();
   const currencySymbol = getCurrencySymbol(preferredCurrency);
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
+  const [editingTransaction, setEditingTransaction] = useState<EditingTransaction>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
+  const [frequencyFilter, setFrequencyFilter] = useState<string>("all");
+  const [sortField, setSortField] = useState<SortField>("date_created");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+
   const [formData, setFormData] = useState({
     type: "expense" as "income" | "expense",
     amount: "",
@@ -34,6 +59,138 @@ export default function Transactions() {
   });
 
   const fmt = (amount: number) => formatCurrency(amount, preferredCurrency);
+
+  // Search and filter logic
+  const filteredTransactions = useMemo(() => {
+    let result = transactions;
+
+    // Type filter
+    if (typeFilter !== "all") {
+      result = result.filter((t) => t.type === typeFilter);
+    }
+
+    // Frequency filter (if field exists)
+    if (frequencyFilter !== "all") {
+      result = result.filter((t) => {
+        const freq = t.frequency || "one-time";
+        return freq.toLowerCase() === frequencyFilter.toLowerCase();
+      });
+    }
+
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(
+        (t) =>
+          t.description?.toLowerCase().includes(query) ||
+          t.category_id?.toString().includes(query)
+      );
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      let aVal: any = a.created_at || "";
+      let bVal: any = b.created_at || "";
+
+      switch (sortField) {
+        case "date_created":
+          aVal = new Date(a.created_at || 0).getTime();
+          bVal = new Date(b.created_at || 0).getTime();
+          break;
+        case "description":
+          aVal = a.description || "";
+          bVal = b.description || "";
+          break;
+        case "category":
+          aVal = a.category_id || "";
+          bVal = b.category_id || "";
+          break;
+        case "type":
+          aVal = a.type || "";
+          bVal = b.type || "";
+          break;
+        case "amount":
+          aVal = a.amount || 0;
+          bVal = b.amount || 0;
+          break;
+        case "transaction_date":
+          aVal = new Date(a.transaction_date || 0).getTime();
+          bVal = new Date(b.transaction_date || 0).getTime();
+          break;
+      }
+
+      if (typeof aVal === "string") {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+      }
+
+      if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [transactions, typeFilter, frequencyFilter, searchQuery, sortField, sortOrder]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const paginatedTransactions = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredTransactions.slice(start, start + itemsPerPage);
+  }, [filteredTransactions, currentPage, itemsPerPage]);
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
+    return sortOrder === "asc" ? (
+      <ChevronUp className="h-4 w-4" />
+    ) : (
+      <ChevronDown className="h-4 w-4" />
+    );
+  };
+
+  const handleDuplicateTransaction = async (transaction: any) => {
+    await createTransaction({
+      ...transaction,
+      id: undefined,
+      created_at: undefined,
+      updated_at: undefined,
+    });
+  };
+
+  const handleEditTransaction = (transaction: any) => {
+    setEditingTransaction({
+      id: transaction.id,
+      type: transaction.type,
+      amount: transaction.amount.toString(),
+      account_id: transaction.account_id,
+      category_id: transaction.category_id || "",
+      description: transaction.description || "",
+      transaction_date: transaction.transaction_date,
+    });
+    setFormData({
+      type: transaction.type,
+      amount: transaction.amount.toString(),
+      account_id: transaction.account_id,
+      category_id: transaction.category_id || "",
+      description: transaction.description || "",
+      transaction_date: transaction.transaction_date,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const resetEditState = () => {
+    setEditingTransaction(null);
+    resetForm();
+  };
 
   // Goal contribution/deduction state
   const [goalEnabled, setGoalEnabled] = useState(false);
@@ -124,7 +281,7 @@ export default function Transactions() {
         : parseFloat(goalAmount) || 0;
     }
 
-    await createTransaction({
+    const transactionData = {
       ...formData,
       amount: transactionAmount,
       currency: account?.currency || "USD",
@@ -133,10 +290,22 @@ export default function Transactions() {
       goal_id: finalGoalId,
       goal_amount: finalGoalAmount,
       goal_allocation_type: finalGoalAllocationType,
-    });
+    };
+
+    if (editingTransaction) {
+      // Update existing transaction
+      await updateTransaction({
+        id: editingTransaction.id,
+        ...transactionData,
+      } as any);
+      resetEditState();
+    } else {
+      // Create new transaction
+      await createTransaction(transactionData);
+      resetForm();
+    }
 
     setIsDialogOpen(false);
-    resetForm();
   };
 
   const handleTypeChange = (type: "income" | "expense") => {
@@ -150,7 +319,6 @@ export default function Transactions() {
 
   if (isLoading) return <TransactionsSkeleton />;
 
-  const filteredTransactions = filter === "all" ? transactions : transactions.filter((t) => t.type === filter);
   const incomeCategories = categories.filter((c) => c.type === "income");
   const expenseCategories = categories.filter((c) => c.type === "expense");
 
@@ -160,18 +328,24 @@ export default function Transactions() {
     : goals.filter((g) => g.status === "active" && !g.is_archived && g.current_amount < g.target_amount);
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="space-y-6 pb-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground md:text-3xl">Transactions</h1>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+        <h1 className="text-3xl font-bold text-foreground">Transactions</h1>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { 
+          setIsDialogOpen(open); 
+          if (!open) resetEditState(); 
+        }}>
           <DialogTrigger asChild>
             <Button size="icon" className="md:hidden"><Plus className="h-5 w-5" /></Button>
           </DialogTrigger>
           <DialogTrigger asChild>
-            <Button className="hidden md:flex"><Plus className="mr-2 h-4 w-4" />Add Transaction</Button>
+            <Button className="hidden md:flex"><Plus className="mr-2 h-4 w-4" />{editingTransaction ? "Edit" : "Add"} Transaction</Button>
           </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-            <DialogHeader><DialogTitle>Add Transaction</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <DialogTitle>{editingTransaction ? "Edit" : "Add"} Transaction</DialogTitle>
+            </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <Tabs value={formData.type} onValueChange={(v) => handleTypeChange(v as "income" | "expense")}>
                 <TabsList className="grid w-full grid-cols-2">
@@ -314,45 +488,257 @@ export default function Transactions() {
         </Dialog>
       </div>
 
-      <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="income">Income</TabsTrigger>
-          <TabsTrigger value="expense">Expense</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Search and Filters */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center">
+        <div className="flex-1">
+          <Input
+            placeholder="Search transactions..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="max-w-md"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Select value={typeFilter} onValueChange={(v: any) => {
+            setTypeFilter(v);
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger className="w-auto min-w-[140px]">
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="income">Income</SelectItem>
+              <SelectItem value="expense">Expense</SelectItem>
+            </SelectContent>
+          </Select>
 
-      {filteredTransactions.length === 0 ? (
-        <Card><CardContent className="py-8 text-center text-muted-foreground">No transactions yet</CardContent></Card>
-      ) : (
-        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-          {filteredTransactions.map((t) => (
-            <div key={t.id} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${t.type === "income" ? "bg-accent" : "bg-muted"}`}>
-                {t.type === "income" ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownRight className="h-5 w-5" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{t.description || "Untitled"}</p>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <span>{format(new Date(t.transaction_date), "MMM d, yyyy")}</span>
-                  {t.goal_id && (
-                    <>
-                      <span>•</span>
-                      <Target className="h-3 w-3" />
-                    </>
-                  )}
-                </div>
-              </div>
-              <p className={`font-semibold whitespace-nowrap ${t.type === "income" ? "text-foreground" : "text-destructive"}`}>
-                {t.type === "income" ? "+" : "-"}{formatCurrency(t.amount, t.currency)}
-              </p>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => deleteTransaction(t)}>
-                <Trash2 className="h-4 w-4 text-muted-foreground" />
+          <Select value={frequencyFilter} onValueChange={(v) => {
+            setFrequencyFilter(v);
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger className="w-auto min-w-[140px]">
+              <SelectValue placeholder="Frequently" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Frequency</SelectItem>
+              <SelectItem value="one-time">One-time</SelectItem>
+              <SelectItem value="daily">Daily</SelectItem>
+              <SelectItem value="weekly">Weekly</SelectItem>
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="yearly">Yearly</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        {paginatedTransactions.length === 0 ? (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <p>No transactions found</p>
+          </div>
+        ) : (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 border-b border-border">
+                <tr>
+                  <th className="px-4 py-3 text-left w-10">
+                    <Checkbox />
+                  </th>
+                  <th className="px-4 py-3 text-left cursor-pointer hover:bg-muted/70" onClick={() => toggleSort("date_created")}>
+                    <div className="flex items-center gap-2 font-semibold text-foreground">
+                      Date Created
+                      {getSortIcon("date_created")}
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left cursor-pointer hover:bg-muted/70" onClick={() => toggleSort("description")}>
+                    <div className="flex items-center gap-2 font-semibold text-foreground">
+                      Title
+                      {getSortIcon("description")}
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left cursor-pointer hidden sm:table-cell hover:bg-muted/70" onClick={() => toggleSort("category")}>
+                    <div className="flex items-center gap-2 font-semibold text-foreground">
+                      Category
+                      {getSortIcon("category")}
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left cursor-pointer hover:bg-muted/70" onClick={() => toggleSort("type")}>
+                    <div className="flex items-center gap-2 font-semibold text-foreground">
+                      Type
+                      {getSortIcon("type")}
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-right cursor-pointer hover:bg-muted/70" onClick={() => toggleSort("amount")}>
+                    <div className="flex items-center justify-end gap-2 font-semibold text-foreground">
+                      Amount
+                      {getSortIcon("amount")}
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left cursor-pointer hidden lg:table-cell hover:bg-muted/70" onClick={() => toggleSort("transaction_date")}>
+                    <div className="flex items-center gap-2 font-semibold text-foreground">
+                      Transaction Date
+                      {getSortIcon("transaction_date")}
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left hidden xl:table-cell font-semibold text-foreground">Payment Method</th>
+                  <th className="px-4 py-3 text-left hidden xl:table-cell font-semibold text-foreground">Frequency</th>
+                  <th className="px-4 py-3 text-center font-semibold text-foreground w-12">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedTransactions.map((transaction) => (
+                  <tr key={transaction.id} className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3">
+                      <Checkbox
+                        checked={selectedRows.has(transaction.id)}
+                        onCheckedChange={(checked) => {
+                          const newSelected = new Set(selectedRows);
+                          if (checked) {
+                            newSelected.add(transaction.id);
+                          } else {
+                            newSelected.delete(transaction.id);
+                          }
+                          setSelectedRows(newSelected);
+                        }}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-foreground">
+                      {format(new Date(transaction.created_at || new Date()), "MMM dd, yyyy")}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-foreground">{transaction.description || "Untitled"}</td>
+                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
+                      {categories.find((c) => c.id === transaction.category_id)?.name || "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`px-2.5 py-0.5 text-xs font-semibold rounded ${
+                          transaction.type === "income"
+                            ? "bg-accent/20 text-accent"
+                            : "bg-destructive/20 text-destructive"
+                        }`}
+                      >
+                        {transaction.type === "income" ? "INCOME" : "EXPENSE"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold">
+                      <span
+                        className={transaction.type === "income" ? "text-accent" : "text-destructive"}
+                      >
+                        {transaction.type === "income" ? "+" : "-"}
+                        {formatCurrency(transaction.amount, transaction.currency)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
+                      {format(new Date(transaction.transaction_date), "MMM dd, yyyy")}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground hidden xl:table-cell">
+                      {accounts.find((a) => a.id === transaction.account_id)?.name || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground hidden xl:table-cell">
+                      <div className="flex items-center gap-1">
+                        <span className="capitalize">{transaction.frequency || "One-time"}</span>
+                        {transaction.frequency && transaction.frequency !== "one-time" && (
+                          <span className="text-xs text-muted-foreground">Next: Feb 07 2026</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEditTransaction(transaction)}>
+                            <Edit2 className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDuplicateTransaction(transaction)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => deleteTransaction(transaction)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {paginatedTransactions.length > 0 && (
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-t border-border bg-muted/30 px-4 py-3">
+            <div className="text-sm text-muted-foreground">
+              Showing {(currentPage - 1) * itemsPerPage + 1}–
+              {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of{" "}
+              {filteredTransactions.length}
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-muted-foreground">Rows per page</label>
+              <Select value={itemsPerPage.toString()} onValueChange={(v) => {
+                setItemsPerPage(parseInt(v));
+                setCurrentPage(1);
+              }}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                variant={currentPage === totalPages ? "outline" : "default"}
+                size="sm"
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+              >
+                {currentPage === totalPages ? currentPage : currentPage}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
               </Button>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
