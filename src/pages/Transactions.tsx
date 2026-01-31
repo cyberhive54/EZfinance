@@ -13,13 +13,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { CurrencyInput } from "@/components/ui/currency-input";
-import { Plus, ArrowUpRight, ArrowDownRight, Loader2, Trash2, Target, AlertCircle, Copy, Edit2, ChevronUp, ChevronDown, ArrowUpDown, MoreHorizontal } from "lucide-react";
-import { format } from "date-fns";
+import { Plus, ArrowUpRight, ArrowDownRight, Loader2, Trash2, Target, AlertCircle, Copy, Edit2, ChevronUp, ChevronDown, ArrowUpDown, MoreHorizontal, X } from "lucide-react";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
-type SortField = "date_created" | "description" | "category" | "type" | "amount" | "transaction_date" | "payment_method" | "frequency";
+type SortField = "date_created" | "amount" | "transaction_date";
 type SortOrder = "asc" | "desc";
+type DateFilterType = "all" | "this-week" | "last-7-days" | "this-month" | "last-30-days" | "this-year" | "last-365-days" | "custom-month" | "custom-year" | "custom-date";
 
 type EditingTransaction = {
   id: string;
@@ -42,12 +44,21 @@ export default function Transactions() {
   const [editingTransaction, setEditingTransaction] = useState<EditingTransaction>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
-  const [frequencyFilter, setFrequencyFilter] = useState<string>("all");
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [amountMin, setAmountMin] = useState<number | null>(null);
+  const [amountMax, setAmountMax] = useState<number | null>(null);
+  const [dateFilterType, setDateFilterType] = useState<DateFilterType>("all");
+  const [customStartDate, setCustomStartDate] = useState<string>("");
+  const [customEndDate, setCustomEndDate] = useState<string>("");
+  const [customMonth, setCustomMonth] = useState<string>("");
+  const [customYear, setCustomYear] = useState<string>(new Date().getFullYear().toString());
   const [sortField, setSortField] = useState<SortField>("date_created");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [allSelectedRows, setAllSelectedRows] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const [formData, setFormData] = useState({
     type: "expense" as "income" | "expense",
@@ -60,6 +71,60 @@ export default function Transactions() {
 
   const fmt = (amount: number) => formatCurrency(amount, preferredCurrency);
 
+  // Date filter helper
+  const getDateRangeFilter = () => {
+    const now = new Date();
+    let start: Date | null = null;
+    let end: Date | null = null;
+
+    switch (dateFilterType) {
+      case "this-week":
+        start = startOfWeek(now);
+        end = endOfWeek(now);
+        break;
+      case "last-7-days":
+        start = subDays(now, 7);
+        end = now;
+        break;
+      case "this-month":
+        start = startOfMonth(now);
+        end = endOfMonth(now);
+        break;
+      case "last-30-days":
+        start = subDays(now, 30);
+        end = now;
+        break;
+      case "this-year":
+        start = startOfYear(now);
+        end = endOfYear(now);
+        break;
+      case "last-365-days":
+        start = subDays(now, 365);
+        end = now;
+        break;
+      case "custom-date":
+        if (customStartDate) start = new Date(customStartDate);
+        if (customEndDate) end = new Date(customEndDate);
+        break;
+      case "custom-month":
+        if (customMonth) {
+          const [year, month] = customMonth.split("-");
+          start = startOfMonth(new Date(parseInt(year), parseInt(month) - 1));
+          end = endOfMonth(new Date(parseInt(year), parseInt(month) - 1));
+        }
+        break;
+      case "custom-year":
+        if (customYear) {
+          const year = parseInt(customYear);
+          start = startOfYear(new Date(year, 0, 1));
+          end = endOfYear(new Date(year, 11, 31));
+        }
+        break;
+    }
+
+    return { start, end };
+  };
+
   // Search and filter logic
   const filteredTransactions = useMemo(() => {
     let result = transactions;
@@ -69,12 +134,33 @@ export default function Transactions() {
       result = result.filter((t) => t.type === typeFilter);
     }
 
-    // Frequency filter (if field exists)
-    if (frequencyFilter !== "all") {
-      result = result.filter((t) => {
-        const freq = t.frequency || "one-time";
-        return freq.toLowerCase() === frequencyFilter.toLowerCase();
-      });
+    // Payment method filter (account-based)
+    if (paymentMethodFilter !== "all") {
+      result = result.filter((t) => t.account_id === paymentMethodFilter);
+    }
+
+    // Category filter
+    if (categoryFilter !== "all") {
+      result = result.filter((t) => t.category_id === categoryFilter);
+    }
+
+    // Amount range filter
+    if (amountMin !== null) {
+      result = result.filter((t) => t.amount >= amountMin);
+    }
+    if (amountMax !== null) {
+      result = result.filter((t) => t.amount <= amountMax);
+    }
+
+    // Date filter
+    if (dateFilterType !== "all") {
+      const { start, end } = getDateRangeFilter();
+      if (start && end) {
+        result = result.filter((t) => {
+          const tDate = new Date(t.transaction_date);
+          return tDate >= start && tDate <= end;
+        });
+      }
     }
 
     // Search filter
@@ -83,7 +169,7 @@ export default function Transactions() {
       result = result.filter(
         (t) =>
           t.description?.toLowerCase().includes(query) ||
-          t.category_id?.toString().includes(query)
+          categories.find((c) => c.id === t.category_id)?.name?.toLowerCase().includes(query)
       );
     }
 
@@ -96,18 +182,6 @@ export default function Transactions() {
         case "date_created":
           aVal = new Date(a.created_at || 0).getTime();
           bVal = new Date(b.created_at || 0).getTime();
-          break;
-        case "description":
-          aVal = a.description || "";
-          bVal = b.description || "";
-          break;
-        case "category":
-          aVal = a.category_id || "";
-          bVal = b.category_id || "";
-          break;
-        case "type":
-          aVal = a.type || "";
-          bVal = b.type || "";
           break;
         case "amount":
           aVal = a.amount || 0;
@@ -130,7 +204,7 @@ export default function Transactions() {
     });
 
     return result;
-  }, [transactions, typeFilter, frequencyFilter, searchQuery, sortField, sortOrder]);
+  }, [transactions, typeFilter, paymentMethodFilter, categoryFilter, amountMin, amountMax, dateFilterType, customStartDate, customEndDate, customMonth, customYear, searchQuery, sortField, sortOrder, categories]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
@@ -149,7 +223,7 @@ export default function Transactions() {
   };
 
   const getSortIcon = (field: SortField) => {
-    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
+    if (sortField !== field) return null;
     return sortOrder === "asc" ? (
       <ChevronUp className="h-4 w-4" />
     ) : (
@@ -158,12 +232,46 @@ export default function Transactions() {
   };
 
   const handleDuplicateTransaction = async (transaction: any) => {
+    const duplicateDescription = `${transaction.description} - Duplicate`;
     await createTransaction({
-      ...transaction,
-      id: undefined,
-      created_at: undefined,
-      updated_at: undefined,
+      type: transaction.type,
+      amount: transaction.amount,
+      account_id: transaction.account_id,
+      category_id: transaction.category_id,
+      description: duplicateDescription,
+      transaction_date: transaction.transaction_date,
+      currency: transaction.currency,
+      frequency: transaction.frequency,
     });
+  };
+
+  const handleSelectAll = () => {
+    if (isAllPageSelected()) {
+      // Unselect all on current page
+      const newSelected = new Set(allSelectedRows);
+      paginatedTransactions.forEach((t) => newSelected.delete(t.id));
+      setAllSelectedRows(newSelected);
+    } else {
+      // Select all on current page
+      const newSelected = new Set(allSelectedRows);
+      paginatedTransactions.forEach((t) => newSelected.add(t.id));
+      setAllSelectedRows(newSelected);
+    }
+  };
+
+  const isAllPageSelected = () => {
+    return paginatedTransactions.length > 0 && paginatedTransactions.every((t) => allSelectedRows.has(t.id));
+  };
+
+  const handleBulkDelete = async () => {
+    for (const id of allSelectedRows) {
+      const transaction = transactions.find((t) => t.id === id);
+      if (transaction) {
+        await deleteTransaction(transaction);
+      }
+    }
+    setAllSelectedRows(new Set());
+    setShowDeleteConfirm(false);
   };
 
   const handleEditTransaction = (transaction: any) => {
@@ -489,8 +597,8 @@ export default function Transactions() {
       </div>
 
       {/* Search and Filters */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center">
-        <div className="flex-1">
+      <div className="space-y-3">
+        <div className="flex flex-1">
           <Input
             placeholder="Search transactions..."
             value={searchQuery}
@@ -501,13 +609,15 @@ export default function Transactions() {
             className="max-w-md"
           />
         </div>
+        
         <div className="flex flex-wrap gap-2">
+          {/* Type Filter */}
           <Select value={typeFilter} onValueChange={(v: any) => {
             setTypeFilter(v);
             setCurrentPage(1);
           }}>
             <SelectTrigger className="w-auto min-w-[140px]">
-              <SelectValue placeholder="All Types" />
+              <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
@@ -516,24 +626,214 @@ export default function Transactions() {
             </SelectContent>
           </Select>
 
-          <Select value={frequencyFilter} onValueChange={(v) => {
-            setFrequencyFilter(v);
+          {/* Payment Method Filter */}
+          <Select value={paymentMethodFilter} onValueChange={(v) => {
+            setPaymentMethodFilter(v);
             setCurrentPage(1);
           }}>
             <SelectTrigger className="w-auto min-w-[140px]">
-              <SelectValue placeholder="Frequently" />
+              <SelectValue placeholder="Payment Method" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Frequency</SelectItem>
-              <SelectItem value="one-time">One-time</SelectItem>
-              <SelectItem value="daily">Daily</SelectItem>
-              <SelectItem value="weekly">Weekly</SelectItem>
-              <SelectItem value="monthly">Monthly</SelectItem>
-              <SelectItem value="yearly">Yearly</SelectItem>
+              <SelectItem value="all">All Methods</SelectItem>
+              {accounts.map((acc) => (
+                <SelectItem key={acc.id} value={acc.id}>
+                  {acc.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Category Filter */}
+          <Select value={categoryFilter} onValueChange={(v) => {
+            setCategoryFilter(v);
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger className="w-auto min-w-[140px]">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Transaction Date Filter */}
+          <Select value={dateFilterType} onValueChange={(v: any) => {
+            setDateFilterType(v);
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger className="w-auto min-w-[140px]">
+              <SelectValue placeholder="Transaction Date" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Dates</SelectItem>
+              <SelectItem value="this-week">This Week</SelectItem>
+              <SelectItem value="last-7-days">Last 7 Days</SelectItem>
+              <SelectItem value="this-month">This Month</SelectItem>
+              <SelectItem value="last-30-days">Last 30 Days</SelectItem>
+              <SelectItem value="this-year">This Year</SelectItem>
+              <SelectItem value="last-365-days">Last 365 Days</SelectItem>
+              <SelectItem value="custom-date">Custom Date</SelectItem>
+              <SelectItem value="custom-month">Custom Month</SelectItem>
+              <SelectItem value="custom-year">Custom Year</SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        {/* Amount Range Filter */}
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="flex-1 min-w-[200px]">
+            <Label className="text-xs text-muted-foreground">Amount Range</Label>
+            <div className="flex gap-2 items-center">
+              <Input
+                type="number"
+                placeholder="Min"
+                value={amountMin ?? ""}
+                onChange={(e) => {
+                  setAmountMin(e.target.value ? parseFloat(e.target.value) : null);
+                  setCurrentPage(1);
+                }}
+                className="w-20"
+              />
+              <span className="text-muted-foreground">-</span>
+              <Input
+                type="number"
+                placeholder="Max"
+                value={amountMax ?? ""}
+                onChange={(e) => {
+                  setAmountMax(e.target.value ? parseFloat(e.target.value) : null);
+                  setCurrentPage(1);
+                }}
+                className="w-20"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Custom Date Filters */}
+        {dateFilterType === "custom-date" && (
+          <div className="flex gap-2 flex-wrap items-end">
+            <div>
+              <Label className="text-xs text-muted-foreground">Start Date</Label>
+              <Input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => {
+                  setCustomStartDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-40"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">End Date</Label>
+              <Input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => {
+                  setCustomEndDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-40"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Custom Month Filter */}
+        {dateFilterType === "custom-month" && (
+          <div className="flex gap-2 flex-wrap items-end">
+            <div>
+              <Label className="text-xs text-muted-foreground">Year</Label>
+              <Input
+                type="number"
+                placeholder="2026"
+                value={customYear}
+                onChange={(e) => {
+                  setCustomYear(e.target.value);
+                  setCurrentPage(1);
+                }}
+                min={2000}
+                max={2100}
+                className="w-24"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Month</Label>
+              <Select value={customMonth} onValueChange={(v) => {
+                setCustomMonth(v);
+                setCurrentPage(1);
+              }}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Select month" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const month = i + 1;
+                    return (
+                      <SelectItem key={month} value={`${customYear}-${String(month).padStart(2, "0")}`}>
+                        {format(new Date(parseInt(customYear), month - 1), "MMMM")}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Year Filter */}
+        {dateFilterType === "custom-year" && (
+          <div className="flex gap-2 flex-wrap items-end">
+            <div>
+              <Label className="text-xs text-muted-foreground">Year</Label>
+              <Input
+                type="number"
+                placeholder="2026"
+                value={customYear}
+                onChange={(e) => {
+                  setCustomYear(e.target.value);
+                  setCurrentPage(1);
+                }}
+                min={2000}
+                max={2100}
+                className="w-24"
+              />
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Bulk Actions Bar */}
+      {allSelectedRows.size > 0 && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/50 px-4 py-3">
+          <span className="text-sm font-medium text-foreground">
+            {allSelectedRows.size} transaction{allSelectedRows.size !== 1 ? "s" : ""} selected
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAllSelectedRows(new Set())}
+            >
+              Reset Selected
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete ({allSelectedRows.size})
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -547,7 +847,10 @@ export default function Transactions() {
               <thead className="bg-muted/50 border-b border-border">
                 <tr>
                   <th className="px-4 py-3 text-left w-10">
-                    <Checkbox />
+                    <Checkbox 
+                      checked={isAllPageSelected()}
+                      onCheckedChange={handleSelectAll}
+                    />
                   </th>
                   <th className="px-4 py-3 text-left cursor-pointer hover:bg-muted/70" onClick={() => toggleSort("date_created")}>
                     <div className="flex items-center gap-2 font-semibold text-foreground">
@@ -555,24 +858,9 @@ export default function Transactions() {
                       {getSortIcon("date_created")}
                     </div>
                   </th>
-                  <th className="px-4 py-3 text-left cursor-pointer hover:bg-muted/70" onClick={() => toggleSort("description")}>
-                    <div className="flex items-center gap-2 font-semibold text-foreground">
-                      Title
-                      {getSortIcon("description")}
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-left cursor-pointer hidden sm:table-cell hover:bg-muted/70" onClick={() => toggleSort("category")}>
-                    <div className="flex items-center gap-2 font-semibold text-foreground">
-                      Category
-                      {getSortIcon("category")}
-                    </div>
-                  </th>
-                  <th className="px-4 py-3 text-left cursor-pointer hover:bg-muted/70" onClick={() => toggleSort("type")}>
-                    <div className="flex items-center gap-2 font-semibold text-foreground">
-                      Type
-                      {getSortIcon("type")}
-                    </div>
-                  </th>
+                  <th className="px-4 py-3 text-left font-semibold text-foreground">Title</th>
+                  <th className="px-4 py-3 text-left hidden sm:table-cell font-semibold text-foreground">Category</th>
+                  <th className="px-4 py-3 text-left font-semibold text-foreground">Type</th>
                   <th className="px-4 py-3 text-right cursor-pointer hover:bg-muted/70" onClick={() => toggleSort("amount")}>
                     <div className="flex items-center justify-end gap-2 font-semibold text-foreground">
                       Amount
@@ -595,15 +883,15 @@ export default function Transactions() {
                   <tr key={transaction.id} className="border-b border-border hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3">
                       <Checkbox
-                        checked={selectedRows.has(transaction.id)}
+                        checked={allSelectedRows.has(transaction.id)}
                         onCheckedChange={(checked) => {
-                          const newSelected = new Set(selectedRows);
+                          const newSelected = new Set(allSelectedRows);
                           if (checked) {
                             newSelected.add(transaction.id);
                           } else {
                             newSelected.delete(transaction.id);
                           }
-                          setSelectedRows(newSelected);
+                          setAllSelectedRows(newSelected);
                         }}
                       />
                     </td>
@@ -739,6 +1027,27 @@ export default function Transactions() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Transactions?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {allSelectedRows.size} transaction{allSelectedRows.size !== 1 ? "s" : ""}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-2 justify-end">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
