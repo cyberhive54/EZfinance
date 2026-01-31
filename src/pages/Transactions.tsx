@@ -13,17 +13,57 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { CurrencyInput } from "@/components/ui/currency-input";
-import { Plus, ArrowUpRight, ArrowDownRight, Loader2, Trash2, Target, AlertCircle } from "lucide-react";
-import { format } from "date-fns";
+import { Plus, ArrowUpRight, ArrowDownRight, Loader2, Trash2, Target, AlertCircle, Copy, Edit2, ChevronUp, ChevronDown, ArrowUpDown, MoreHorizontal, X, Calendar as CalendarIcon } from "lucide-react";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from "date-fns";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+
+type SortField = "date_created" | "amount" | "transaction_date";
+type SortOrder = "asc" | "desc";
+type DateFilterType = "all" | "this-week" | "last-7-days" | "this-month" | "last-30-days" | "this-year" | "last-365-days" | "custom-month" | "custom-year" | "custom-date";
+
+type EditingTransaction = {
+  id: string;
+  type: "income" | "expense";
+  amount: string;
+  account_id: string;
+  category_id: string;
+  description: string;
+  transaction_date: string;
+} | null;
 
 export default function Transactions() {
-  const { transactions, categories, isLoading, createTransaction, deleteTransaction, isCreating } = useTransactions();
+  const { transactions, categories, isLoading, createTransaction, updateTransaction, deleteTransaction, isCreating, isUpdating } = useTransactions();
   const { accounts } = useAccounts();
   const { goals } = useGoals();
   const { preferredCurrency } = useProfile();
   const currencySymbol = getCurrencySymbol(preferredCurrency);
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
+  const [editingTransaction, setEditingTransaction] = useState<EditingTransaction>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchCategoryInput, setSearchCategoryInput] = useState("");
+  const [searchMonthInput, setSearchMonthInput] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [amountMin, setAmountMin] = useState<number | null>(null);
+  const [amountMax, setAmountMax] = useState<number | null>(null);
+  const [dateFilterType, setDateFilterType] = useState<DateFilterType>("all");
+  const [customStartDate, setCustomStartDate] = useState<string>("");
+  const [customEndDate, setCustomEndDate] = useState<string>("");
+  const [customMonth, setCustomMonth] = useState<string>("");
+  const [customYear, setCustomYear] = useState<string>(new Date().getFullYear().toString());
+  const [sortField, setSortField] = useState<SortField>("date_created");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [allSelectedRows, setAllSelectedRows] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const [formData, setFormData] = useState({
     type: "expense" as "income" | "expense",
     amount: "",
@@ -34,6 +74,234 @@ export default function Transactions() {
   });
 
   const fmt = (amount: number) => formatCurrency(amount, preferredCurrency);
+
+  // Date filter helper
+  const getDateRangeFilter = () => {
+    const now = new Date();
+    let start: Date | null = null;
+    let end: Date | null = null;
+
+    switch (dateFilterType) {
+      case "this-week":
+        start = startOfWeek(now);
+        end = endOfWeek(now);
+        break;
+      case "last-7-days":
+        start = subDays(now, 7);
+        end = now;
+        break;
+      case "this-month":
+        start = startOfMonth(now);
+        end = endOfMonth(now);
+        break;
+      case "last-30-days":
+        start = subDays(now, 30);
+        end = now;
+        break;
+      case "this-year":
+        start = startOfYear(now);
+        end = endOfYear(now);
+        break;
+      case "last-365-days":
+        start = subDays(now, 365);
+        end = now;
+        break;
+      case "custom-date":
+        if (customStartDate) start = new Date(customStartDate);
+        if (customEndDate) end = new Date(customEndDate);
+        break;
+      case "custom-month":
+        if (customMonth) {
+          const [year, month] = customMonth.split("-");
+          start = startOfMonth(new Date(parseInt(year), parseInt(month) - 1));
+          end = endOfMonth(new Date(parseInt(year), parseInt(month) - 1));
+        }
+        break;
+      case "custom-year":
+        if (customYear) {
+          const year = parseInt(customYear);
+          start = startOfYear(new Date(year, 0, 1));
+          end = endOfYear(new Date(year, 11, 31));
+        }
+        break;
+    }
+
+    return { start, end };
+  };
+
+  // Search and filter logic
+  const filteredTransactions = useMemo(() => {
+    let result = transactions;
+
+    // Type filter
+    if (typeFilter !== "all") {
+      result = result.filter((t) => t.type === typeFilter);
+    }
+
+    // Payment method filter (account-based)
+    if (paymentMethodFilter !== "all") {
+      result = result.filter((t) => t.account_id === paymentMethodFilter);
+    }
+
+    // Category filter
+    if (categoryFilter !== "all") {
+      result = result.filter((t) => t.category_id === categoryFilter);
+    }
+
+    // Amount range filter
+    if (amountMin !== null) {
+      result = result.filter((t) => t.amount >= amountMin);
+    }
+    if (amountMax !== null) {
+      result = result.filter((t) => t.amount <= amountMax);
+    }
+
+    // Date filter
+    if (dateFilterType !== "all") {
+      const { start, end } = getDateRangeFilter();
+      if (start && end) {
+        result = result.filter((t) => {
+          const tDate = new Date(t.transaction_date);
+          return tDate >= start && tDate <= end;
+        });
+      }
+    }
+
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(
+        (t) =>
+          t.description?.toLowerCase().includes(query) ||
+          categories.find((c) => c.id === t.category_id)?.name?.toLowerCase().includes(query)
+      );
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      let aVal: any = a.created_at || "";
+      let bVal: any = b.created_at || "";
+
+      switch (sortField) {
+        case "date_created":
+          aVal = new Date(a.created_at || 0).getTime();
+          bVal = new Date(b.created_at || 0).getTime();
+          break;
+        case "amount":
+          aVal = a.amount || 0;
+          bVal = b.amount || 0;
+          break;
+        case "transaction_date":
+          aVal = new Date(a.transaction_date || 0).getTime();
+          bVal = new Date(b.transaction_date || 0).getTime();
+          break;
+      }
+
+      if (typeof aVal === "string") {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+      }
+
+      if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [transactions, typeFilter, paymentMethodFilter, categoryFilter, amountMin, amountMax, dateFilterType, customStartDate, customEndDate, customMonth, customYear, searchQuery, sortField, sortOrder, categories]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const paginatedTransactions = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredTransactions.slice(start, start + itemsPerPage);
+  }, [filteredTransactions, currentPage, itemsPerPage]);
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return null;
+    return sortOrder === "asc" ? (
+      <ChevronUp className="h-4 w-4" />
+    ) : (
+      <ChevronDown className="h-4 w-4" />
+    );
+  };
+
+  const handleDuplicateTransaction = async (transaction: any) => {
+    const duplicateDescription = `${transaction.description} - Duplicate`;
+    await createTransaction({
+      type: transaction.type,
+      amount: transaction.amount,
+      account_id: transaction.account_id,
+      category_id: transaction.category_id || null,
+      description: duplicateDescription,
+      transaction_date: transaction.transaction_date,
+      currency: transaction.currency,
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (isAllPageSelected()) {
+      // Unselect all on current page
+      const newSelected = new Set(allSelectedRows);
+      paginatedTransactions.forEach((t) => newSelected.delete(t.id));
+      setAllSelectedRows(newSelected);
+    } else {
+      // Select all on current page
+      const newSelected = new Set(allSelectedRows);
+      paginatedTransactions.forEach((t) => newSelected.add(t.id));
+      setAllSelectedRows(newSelected);
+    }
+  };
+
+  const isAllPageSelected = () => {
+    return paginatedTransactions.length > 0 && paginatedTransactions.every((t) => allSelectedRows.has(t.id));
+  };
+
+  const handleBulkDelete = async () => {
+    for (const id of allSelectedRows) {
+      const transaction = transactions.find((t) => t.id === id);
+      if (transaction) {
+        await deleteTransaction(transaction);
+      }
+    }
+    setAllSelectedRows(new Set());
+    setShowDeleteConfirm(false);
+  };
+
+  const handleEditTransaction = (transaction: any) => {
+    setEditingTransaction({
+      id: transaction.id,
+      type: transaction.type,
+      amount: transaction.amount.toString(),
+      account_id: transaction.account_id,
+      category_id: transaction.category_id || "",
+      description: transaction.description || "",
+      transaction_date: transaction.transaction_date,
+    });
+    setFormData({
+      type: transaction.type,
+      amount: transaction.amount.toString(),
+      account_id: transaction.account_id,
+      category_id: transaction.category_id || "",
+      description: transaction.description || "",
+      transaction_date: transaction.transaction_date,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const resetEditState = () => {
+    setEditingTransaction(null);
+    resetForm();
+  };
 
   // Goal contribution/deduction state
   const [goalEnabled, setGoalEnabled] = useState(false);
@@ -124,7 +392,7 @@ export default function Transactions() {
         : parseFloat(goalAmount) || 0;
     }
 
-    await createTransaction({
+    const transactionData = {
       ...formData,
       amount: transactionAmount,
       currency: account?.currency || "USD",
@@ -133,10 +401,22 @@ export default function Transactions() {
       goal_id: finalGoalId,
       goal_amount: finalGoalAmount,
       goal_allocation_type: finalGoalAllocationType,
-    });
+    };
+
+    if (editingTransaction) {
+      // Update existing transaction
+      await updateTransaction({
+        id: editingTransaction.id,
+        ...transactionData,
+      } as any);
+      resetEditState();
+    } else {
+      // Create new transaction
+      await createTransaction(transactionData);
+      resetForm();
+    }
 
     setIsDialogOpen(false);
-    resetForm();
   };
 
   const handleTypeChange = (type: "income" | "expense") => {
@@ -150,7 +430,6 @@ export default function Transactions() {
 
   if (isLoading) return <TransactionsSkeleton />;
 
-  const filteredTransactions = filter === "all" ? transactions : transactions.filter((t) => t.type === filter);
   const incomeCategories = categories.filter((c) => c.type === "income");
   const expenseCategories = categories.filter((c) => c.type === "expense");
 
@@ -160,18 +439,24 @@ export default function Transactions() {
     : goals.filter((g) => g.status === "active" && !g.is_archived && g.current_amount < g.target_amount);
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="space-y-6 pb-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground md:text-3xl">Transactions</h1>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+        <h1 className="text-3xl font-bold text-foreground">Transactions</h1>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { 
+          setIsDialogOpen(open); 
+          if (!open) resetEditState(); 
+        }}>
           <DialogTrigger asChild>
             <Button size="icon" className="md:hidden"><Plus className="h-5 w-5" /></Button>
           </DialogTrigger>
           <DialogTrigger asChild>
-            <Button className="hidden md:flex"><Plus className="mr-2 h-4 w-4" />Add Transaction</Button>
+            <Button className="hidden md:flex"><Plus className="mr-2 h-4 w-4" />{editingTransaction ? "Edit" : "Add"} Transaction</Button>
           </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
-            <DialogHeader><DialogTitle>Add Transaction</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <DialogTitle>{editingTransaction ? "Edit" : "Add"} Transaction</DialogTitle>
+            </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <Tabs value={formData.type} onValueChange={(v) => handleTypeChange(v as "income" | "expense")}>
                 <TabsList className="grid w-full grid-cols-2">
@@ -179,6 +464,18 @@ export default function Transactions() {
                   <TabsTrigger value="income">Income</TabsTrigger>
                 </TabsList>
               </Tabs>
+
+              {/* Description - Top */}
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Input 
+                  placeholder="e.g., Grocery shopping"
+                  value={formData.description} 
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })} 
+                />
+              </div>
+
+              {/* Amount & Transaction Date - Half Width */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Amount</Label>
@@ -191,10 +488,34 @@ export default function Transactions() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Input type="date" value={formData.transaction_date} onChange={(e) => setFormData({ ...formData, transaction_date: e.target.value })} />
+                  <Label>Transaction Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.transaction_date ? format(new Date(formData.transaction_date), "MMM dd, yyyy") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={new Date(formData.transaction_date)}
+                        onSelect={(date) => {
+                          if (date) {
+                            setFormData({ ...formData, transaction_date: format(date, "yyyy-MM-dd") });
+                          }
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
+
+              {/* Account & Category - Half Width */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Account</Label>
@@ -217,9 +538,22 @@ export default function Transactions() {
                   </Select>
                 </div>
               </div>
+
+              {/* Disabled Fields */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Frequency</Label>
+                  <Input disabled value="One-time" className="opacity-50" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Attachment</Label>
+                  <Input disabled placeholder="N/A" className="opacity-50" />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label>Description</Label>
-                <Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+                <Label>Notes</Label>
+                <Input disabled placeholder="N/A" className="opacity-50" />
               </div>
 
               {/* Goal Section */}
@@ -314,45 +648,580 @@ export default function Transactions() {
         </Dialog>
       </div>
 
-      <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="income">Income</TabsTrigger>
-          <TabsTrigger value="expense">Expense</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Search and Filters - One Line on PC */}
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-2">
+        <Input
+          placeholder="Search transactions..."
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setCurrentPage(1);
+          }}
+          className="flex-1"
+        />
+        
+        <div className="flex flex-wrap gap-2 lg:flex-nowrap">
+          {/* Type Filter */}
+          <Select value={typeFilter} onValueChange={(v: any) => {
+            setTypeFilter(v);
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger className="w-full lg:w-auto min-w-[130px]">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="income">Income</SelectItem>
+              <SelectItem value="expense">Expense</SelectItem>
+            </SelectContent>
+          </Select>
 
-      {filteredTransactions.length === 0 ? (
-        <Card><CardContent className="py-8 text-center text-muted-foreground">No transactions yet</CardContent></Card>
-      ) : (
-        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-          {filteredTransactions.map((t) => (
-            <div key={t.id} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${t.type === "income" ? "bg-accent" : "bg-muted"}`}>
-                {t.type === "income" ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownRight className="h-5 w-5" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{t.description || "Untitled"}</p>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <span>{format(new Date(t.transaction_date), "MMM d, yyyy")}</span>
-                  {t.goal_id && (
-                    <>
-                      <span>•</span>
-                      <Target className="h-3 w-3" />
-                    </>
-                  )}
+          {/* Payment Method Filter */}
+          <Select value={paymentMethodFilter} onValueChange={(v) => {
+            setPaymentMethodFilter(v);
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger className="w-full lg:w-auto min-w-[130px]">
+              <SelectValue placeholder="Payment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Methods</SelectItem>
+              {accounts.map((acc) => (
+                <SelectItem key={acc.id} value={acc.id}>
+                  {acc.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Category Filter with Tabs */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full lg:w-auto min-w-[130px]">
+                Category {(categoryFilter !== "all") && "✓"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56 p-4" align="end">
+              <div className="space-y-3">
+                <Input
+                  placeholder="Search categories..."
+                  value={searchCategoryInput}
+                  onChange={(e) => setSearchCategoryInput(e.target.value.toLowerCase())}
+                  className="h-8"
+                />
+                <Tabs defaultValue="all" onValueChange={(v) => {
+                  if (v === "all") {
+                    setCategoryFilter("all");
+                  }
+                }}>
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="all" onClick={() => {
+                      setCategoryFilter("all");
+                      setCurrentPage(1);
+                    }}>All</TabsTrigger>
+                    <TabsTrigger value="income">Income</TabsTrigger>
+                    <TabsTrigger value="expense">Expense</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  <button
+                    onClick={() => {
+                      setCategoryFilter("all");
+                      setCurrentPage(1);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm ${categoryFilter === "all" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                  >
+                    All Categories
+                  </button>
+                  {incomeCategories
+                    .filter((cat) => cat.name.toLowerCase().includes(searchCategoryInput))
+                    .map((cat) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => {
+                          setCategoryFilter(cat.id);
+                          setCurrentPage(1);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded text-sm ${categoryFilter === cat.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
+                  {expenseCategories
+                    .filter((cat) => cat.name.toLowerCase().includes(searchCategoryInput))
+                    .map((cat) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => {
+                          setCategoryFilter(cat.id);
+                          setCurrentPage(1);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded text-sm ${categoryFilter === cat.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
                 </div>
               </div>
-              <p className={`font-semibold whitespace-nowrap ${t.type === "income" ? "text-foreground" : "text-destructive"}`}>
-                {t.type === "income" ? "+" : "-"}{formatCurrency(t.amount, t.currency)}
-              </p>
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => deleteTransaction(t)}>
-                <Trash2 className="h-4 w-4 text-muted-foreground" />
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Amount Range Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full lg:w-auto">
+                Amount {(amountMin !== null || amountMax !== null) && "✓"}
               </Button>
-            </div>
-          ))}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-64 p-4" align="end">
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Min Amount</Label>
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={amountMin ?? ""}
+                    onChange={(e) => {
+                      setAmountMin(e.target.value ? parseFloat(e.target.value) : null);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Max Amount</Label>
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={amountMax ?? ""}
+                    onChange={(e) => {
+                      setAmountMax(e.target.value ? parseFloat(e.target.value) : null);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Transaction Date Filter Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full lg:w-auto">
+                Date {(dateFilterType !== "all") && "✓"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-80 p-4" align="end">
+              <div className="space-y-3">
+                <Select value={dateFilterType} onValueChange={(v: any) => {
+                  setDateFilterType(v);
+                  setCurrentPage(1);
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select date range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Dates</SelectItem>
+                    <SelectItem value="this-week">This Week</SelectItem>
+                    <SelectItem value="last-7-days">Last 7 Days</SelectItem>
+                    <SelectItem value="this-month">This Month</SelectItem>
+                    <SelectItem value="last-30-days">Last 30 Days</SelectItem>
+                    <SelectItem value="this-year">This Year</SelectItem>
+                    <SelectItem value="last-365-days">Last 365 Days</SelectItem>
+                    <SelectItem value="custom-date">Custom Date</SelectItem>
+                    <SelectItem value="custom-month">Custom Month</SelectItem>
+                    <SelectItem value="custom-year">Custom Year</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Custom Date */}
+                {dateFilterType === "custom-date" && (
+                  <div className="space-y-3 border-t pt-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Start Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {customStartDate ? format(new Date(customStartDate), "MMM dd, yyyy") : "Pick start date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customStartDate ? new Date(customStartDate) : undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                setCustomStartDate(format(date, "yyyy-MM-dd"));
+                                setCurrentPage(1);
+                              }
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">End Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {customEndDate ? format(new Date(customEndDate), "MMM dd, yyyy") : "Pick end date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customEndDate ? new Date(customEndDate) : undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                setCustomEndDate(format(date, "yyyy-MM-dd"));
+                                setCurrentPage(1);
+                              }
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom Month */}
+                {dateFilterType === "custom-month" && (
+                  <div className="space-y-3 border-t pt-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Year</Label>
+                      <Input
+                        type="number"
+                        placeholder="2026"
+                        value={customYear}
+                        onChange={(e) => {
+                          setCustomYear(e.target.value);
+                          setCurrentPage(1);
+                        }}
+                        min={2000}
+                        max={2100}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Month</Label>
+                      <Input
+                        placeholder="Search month..."
+                        value={searchMonthInput}
+                        onChange={(e) => setSearchMonthInput(e.target.value.toLowerCase())}
+                        className="h-8 mb-2"
+                      />
+                      <div className="space-y-1 max-h-40 overflow-y-auto border border-border rounded">
+                        {Array.from({ length: 12 }, (_, i) => {
+                          const month = i + 1;
+                          const monthName = format(new Date(parseInt(customYear), month - 1), "MMMM");
+                          const monthValue = `${customYear}-${String(month).padStart(2, "0")}`;
+                          
+                          if (!monthName.toLowerCase().includes(searchMonthInput)) return null;
+                          
+                          return (
+                            <button
+                              key={month}
+                              onClick={() => {
+                                setCustomMonth(monthValue);
+                                setCurrentPage(1);
+                              }}
+                              className={`w-full text-left px-3 py-2 text-sm ${customMonth === monthValue ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                            >
+                              {monthName}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom Year */}
+                {dateFilterType === "custom-year" && (
+                  <div className="space-y-2 border-t pt-3">
+                    <Label className="text-xs text-muted-foreground">Year</Label>
+                    <Input
+                      type="number"
+                      placeholder="2026"
+                      value={customYear}
+                      onChange={(e) => {
+                        setCustomYear(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      min={2000}
+                      max={2100}
+                    />
+                  </div>
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Clear Filters Button - Show when 2+ filters active */}
+          {((typeFilter !== "all" ? 1 : 0) + (paymentMethodFilter !== "all" ? 1 : 0) + (categoryFilter !== "all" ? 1 : 0) + (amountMin !== null || amountMax !== null ? 1 : 0) + (dateFilterType !== "all" ? 1 : 0) + (searchQuery ? 1 : 0)) >= 2 && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                setSearchQuery("");
+                setTypeFilter("all");
+                setPaymentMethodFilter("all");
+                setCategoryFilter("all");
+                setAmountMin(null);
+                setAmountMax(null);
+                setDateFilterType("all");
+                setCustomStartDate("");
+                setCustomEndDate("");
+                setCustomMonth("");
+                setCurrentPage(1);
+              }}
+              className="w-full lg:w-auto"
+            >
+              <X className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Bulk Actions Bar */}
+      {allSelectedRows.size > 0 && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/50 px-4 py-3">
+          <span className="text-sm font-medium text-foreground">
+            {allSelectedRows.size} transaction{allSelectedRows.size !== 1 ? "s" : ""} selected
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAllSelectedRows(new Set())}
+            >
+              Reset Selected
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete ({allSelectedRows.size})
+            </Button>
+          </div>
         </div>
       )}
+
+      {/* Table */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        {paginatedTransactions.length === 0 ? (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <p>No transactions found</p>
+          </div>
+        ) : (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 border-b border-border">
+                <tr>
+                  <th className="px-4 py-3 text-left w-10">
+                    <Checkbox 
+                      checked={isAllPageSelected()}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </th>
+                  <th className="px-4 py-3 text-left font-semibold text-foreground">Title</th>
+                  <th className="px-4 py-3 text-left hidden sm:table-cell font-semibold text-foreground">Category</th>
+                  <th className="px-4 py-3 text-left font-semibold text-foreground">Type</th>
+                  <th className="px-4 py-3 text-right cursor-pointer hover:bg-muted/70" onClick={() => toggleSort("amount")}>
+                    <div className="flex items-center justify-end gap-2 font-semibold text-foreground">
+                      Amount
+                      {getSortIcon("amount")}
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left cursor-pointer hidden lg:table-cell hover:bg-muted/70" onClick={() => toggleSort("transaction_date")}>
+                    <div className="flex items-center gap-2 font-semibold text-foreground">
+                      Transaction Date
+                      {getSortIcon("transaction_date")}
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left hidden xl:table-cell font-semibold text-foreground">Payment Method</th>
+                  <th className="px-4 py-3 text-left cursor-pointer hover:bg-muted/70" onClick={() => toggleSort("date_created")}>
+                    <div className="flex items-center gap-2 font-semibold text-foreground">
+                      Date Created
+                      {getSortIcon("date_created")}
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-center font-semibold text-foreground w-12">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedTransactions.map((transaction) => (
+                  <tr key={transaction.id} className="border-b border-border hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3">
+                      <Checkbox
+                        checked={allSelectedRows.has(transaction.id)}
+                        onCheckedChange={(checked) => {
+                          const newSelected = new Set(allSelectedRows);
+                          if (checked) {
+                            newSelected.add(transaction.id);
+                          } else {
+                            newSelected.delete(transaction.id);
+                          }
+                          setAllSelectedRows(newSelected);
+                        }}
+                      />
+                    </td>
+                    <td className="px-4 py-3 font-medium text-foreground">{transaction.description || "Untitled"}</td>
+                    <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
+                      {categories.find((c) => c.id === transaction.category_id)?.name || "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`px-2.5 py-0.5 text-xs font-semibold rounded ${
+                          transaction.type === "income"
+                            ? "bg-accent/20 text-accent"
+                            : "bg-destructive/20 text-destructive"
+                        }`}
+                      >
+                        {transaction.type === "income" ? "INCOME" : "EXPENSE"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold">
+                      <span
+                        className={transaction.type === "income" ? "text-accent" : "text-destructive"}
+                      >
+                        {transaction.type === "income" ? "+" : "-"}
+                        {formatCurrency(transaction.amount, transaction.currency)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
+                      {format(new Date(transaction.transaction_date), "MMM dd, yyyy")}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground hidden xl:table-cell">
+                      {accounts.find((a) => a.id === transaction.account_id)?.name || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-foreground text-sm">
+                      {format(new Date(transaction.created_at || new Date()), "MMM dd, yyyy")}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEditTransaction(transaction)}>
+                            <Edit2 className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDuplicateTransaction(transaction)}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => deleteTransaction(transaction)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {paginatedTransactions.length > 0 && (
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-t border-border bg-muted/30 px-4 py-3">
+            <div className="text-sm text-muted-foreground">
+              Showing {(currentPage - 1) * itemsPerPage + 1}–
+              {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of{" "}
+              {filteredTransactions.length}
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-muted-foreground">Rows per page</label>
+              <Select value={itemsPerPage.toString()} onValueChange={(v) => {
+                setItemsPerPage(parseInt(v));
+                setCurrentPage(1);
+              }}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                variant={currentPage === totalPages ? "outline" : "default"}
+                size="sm"
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+              >
+                {currentPage === totalPages ? currentPage : currentPage}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Transactions?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {allSelectedRows.size} transaction{allSelectedRows.size !== 1 ? "s" : ""}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-2 justify-end">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
