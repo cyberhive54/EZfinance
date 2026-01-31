@@ -237,11 +237,10 @@ export default function Transactions() {
       type: transaction.type,
       amount: transaction.amount,
       account_id: transaction.account_id,
-      category_id: transaction.category_id,
+      category_id: transaction.category_id || null,
       description: duplicateDescription,
       transaction_date: transaction.transaction_date,
       currency: transaction.currency,
-      frequency: transaction.frequency,
     });
   };
 
@@ -461,22 +460,30 @@ export default function Transactions() {
                   <TabsTrigger value="income">Income</TabsTrigger>
                 </TabsList>
               </Tabs>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Amount</Label>
-                  <CurrencyInput 
-                    currencySymbol={currencySymbol}
-                    step="0.01" 
-                    value={formData.amount} 
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })} 
-                    required 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Input type="date" value={formData.transaction_date} onChange={(e) => setFormData({ ...formData, transaction_date: e.target.value })} />
-                </div>
+
+              {/* Amount */}
+              <div className="space-y-2">
+                <Label>Amount</Label>
+                <CurrencyInput 
+                  currencySymbol={currencySymbol}
+                  step="0.01" 
+                  value={formData.amount} 
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })} 
+                  required 
+                />
               </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Input 
+                  placeholder="e.g., Grocery shopping"
+                  value={formData.description} 
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })} 
+                />
+              </div>
+
+              {/* Account & Category */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Account</Label>
@@ -499,9 +506,32 @@ export default function Transactions() {
                   </Select>
                 </div>
               </div>
+
+              {/* Date */}
               <div className="space-y-2">
-                <Label>Description</Label>
-                <Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+                <Label>Transaction Date</Label>
+                <Input 
+                  type="date" 
+                  value={formData.transaction_date} 
+                  onChange={(e) => setFormData({ ...formData, transaction_date: e.target.value })} 
+                />
+              </div>
+
+              {/* Disabled Fields */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Frequency</Label>
+                  <Input disabled value="One-time" className="opacity-50" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Attachment</Label>
+                  <Input disabled placeholder="N/A" className="opacity-50" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Input disabled placeholder="N/A" className="opacity-50" />
               </div>
 
               {/* Goal Section */}
@@ -596,27 +626,25 @@ export default function Transactions() {
         </Dialog>
       </div>
 
-      {/* Search and Filters */}
-      <div className="space-y-3">
-        <div className="flex flex-1">
-          <Input
-            placeholder="Search transactions..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="max-w-md"
-          />
-        </div>
+      {/* Search and Filters - One Line on PC */}
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-2">
+        <Input
+          placeholder="Search transactions..."
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setCurrentPage(1);
+          }}
+          className="flex-1"
+        />
         
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 lg:flex-nowrap">
           {/* Type Filter */}
           <Select value={typeFilter} onValueChange={(v: any) => {
             setTypeFilter(v);
             setCurrentPage(1);
           }}>
-            <SelectTrigger className="w-auto min-w-[140px]">
+            <SelectTrigger className="w-full lg:w-auto min-w-[130px]">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
@@ -631,8 +659,8 @@ export default function Transactions() {
             setPaymentMethodFilter(v);
             setCurrentPage(1);
           }}>
-            <SelectTrigger className="w-auto min-w-[140px]">
-              <SelectValue placeholder="Payment Method" />
+            <SelectTrigger className="w-full lg:w-auto min-w-[130px]">
+              <SelectValue placeholder="Payment" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Methods</SelectItem>
@@ -649,7 +677,7 @@ export default function Transactions() {
             setCategoryFilter(v);
             setCurrentPage(1);
           }}>
-            <SelectTrigger className="w-auto min-w-[140px]">
+            <SelectTrigger className="w-full lg:w-auto min-w-[130px]">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
@@ -662,151 +690,180 @@ export default function Transactions() {
             </SelectContent>
           </Select>
 
-          {/* Transaction Date Filter */}
-          <Select value={dateFilterType} onValueChange={(v: any) => {
-            setDateFilterType(v);
-            setCurrentPage(1);
-          }}>
-            <SelectTrigger className="w-auto min-w-[140px]">
-              <SelectValue placeholder="Transaction Date" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Dates</SelectItem>
-              <SelectItem value="this-week">This Week</SelectItem>
-              <SelectItem value="last-7-days">Last 7 Days</SelectItem>
-              <SelectItem value="this-month">This Month</SelectItem>
-              <SelectItem value="last-30-days">Last 30 Days</SelectItem>
-              <SelectItem value="this-year">This Year</SelectItem>
-              <SelectItem value="last-365-days">Last 365 Days</SelectItem>
-              <SelectItem value="custom-date">Custom Date</SelectItem>
-              <SelectItem value="custom-month">Custom Month</SelectItem>
-              <SelectItem value="custom-year">Custom Year</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          {/* Amount Range Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full lg:w-auto">
+                Amount {(amountMin !== null || amountMax !== null) && "✓"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-64 p-4" align="end">
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Min Amount</Label>
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={amountMin ?? ""}
+                    onChange={(e) => {
+                      setAmountMin(e.target.value ? parseFloat(e.target.value) : null);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Max Amount</Label>
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={amountMax ?? ""}
+                    onChange={(e) => {
+                      setAmountMax(e.target.value ? parseFloat(e.target.value) : null);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-        {/* Amount Range Filter */}
-        <div className="flex flex-wrap gap-2 items-end">
-          <div className="flex-1 min-w-[200px]">
-            <Label className="text-xs text-muted-foreground">Amount Range</Label>
-            <div className="flex gap-2 items-center">
-              <Input
-                type="number"
-                placeholder="Min"
-                value={amountMin ?? ""}
-                onChange={(e) => {
-                  setAmountMin(e.target.value ? parseFloat(e.target.value) : null);
+          {/* Transaction Date Filter Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full lg:w-auto">
+                Date {(dateFilterType !== "all") && "✓"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-80 p-4" align="end">
+              <div className="space-y-3">
+                <Select value={dateFilterType} onValueChange={(v: any) => {
+                  setDateFilterType(v);
                   setCurrentPage(1);
-                }}
-                className="w-20"
-              />
-              <span className="text-muted-foreground">-</span>
-              <Input
-                type="number"
-                placeholder="Max"
-                value={amountMax ?? ""}
-                onChange={(e) => {
-                  setAmountMax(e.target.value ? parseFloat(e.target.value) : null);
-                  setCurrentPage(1);
-                }}
-                className="w-20"
-              />
-            </div>
-          </div>
-        </div>
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select date range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Dates</SelectItem>
+                    <SelectItem value="this-week">This Week</SelectItem>
+                    <SelectItem value="last-7-days">Last 7 Days</SelectItem>
+                    <SelectItem value="this-month">This Month</SelectItem>
+                    <SelectItem value="last-30-days">Last 30 Days</SelectItem>
+                    <SelectItem value="this-year">This Year</SelectItem>
+                    <SelectItem value="last-365-days">Last 365 Days</SelectItem>
+                    <SelectItem value="custom-date">Custom Date</SelectItem>
+                    <SelectItem value="custom-month">Custom Month</SelectItem>
+                    <SelectItem value="custom-year">Custom Year</SelectItem>
+                  </SelectContent>
+                </Select>
 
-        {/* Custom Date Filters */}
-        {dateFilterType === "custom-date" && (
-          <div className="flex gap-2 flex-wrap items-end">
-            <div>
-              <Label className="text-xs text-muted-foreground">Start Date</Label>
-              <Input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => {
-                  setCustomStartDate(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-40"
-              />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">End Date</Label>
-              <Input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => {
-                  setCustomEndDate(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-40"
-              />
-            </div>
-          </div>
-        )}
+                {/* Custom Date */}
+                {dateFilterType === "custom-date" && (
+                  <div className="space-y-2 border-t pt-3">
+                    <Label className="text-xs text-muted-foreground">Start Date</Label>
+                    <Input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => {
+                        setCustomStartDate(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                    />
+                    <Label className="text-xs text-muted-foreground">End Date</Label>
+                    <Input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => {
+                        setCustomEndDate(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                    />
+                  </div>
+                )}
 
-        {/* Custom Month Filter */}
-        {dateFilterType === "custom-month" && (
-          <div className="flex gap-2 flex-wrap items-end">
-            <div>
-              <Label className="text-xs text-muted-foreground">Year</Label>
-              <Input
-                type="number"
-                placeholder="2026"
-                value={customYear}
-                onChange={(e) => {
-                  setCustomYear(e.target.value);
-                  setCurrentPage(1);
-                }}
-                min={2000}
-                max={2100}
-                className="w-24"
-              />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Month</Label>
-              <Select value={customMonth} onValueChange={(v) => {
-                setCustomMonth(v);
+                {/* Custom Month */}
+                {dateFilterType === "custom-month" && (
+                  <div className="space-y-2 border-t pt-3">
+                    <Label className="text-xs text-muted-foreground">Year</Label>
+                    <Input
+                      type="number"
+                      placeholder="2026"
+                      value={customYear}
+                      onChange={(e) => {
+                        setCustomYear(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      min={2000}
+                      max={2100}
+                    />
+                    <Label className="text-xs text-muted-foreground">Month</Label>
+                    <Select value={customMonth} onValueChange={(v) => {
+                      setCustomMonth(v);
+                      setCurrentPage(1);
+                    }}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select month" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 12 }, (_, i) => {
+                          const month = i + 1;
+                          return (
+                            <SelectItem key={month} value={`${customYear}-${String(month).padStart(2, "0")}`}>
+                              {format(new Date(parseInt(customYear), month - 1), "MMMM")}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Custom Year */}
+                {dateFilterType === "custom-year" && (
+                  <div className="space-y-2 border-t pt-3">
+                    <Label className="text-xs text-muted-foreground">Year</Label>
+                    <Input
+                      type="number"
+                      placeholder="2026"
+                      value={customYear}
+                      onChange={(e) => {
+                        setCustomYear(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      min={2000}
+                      max={2100}
+                    />
+                  </div>
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Clear Filters Button - Show when 2+ filters active */}
+          {((typeFilter !== "all" ? 1 : 0) + (paymentMethodFilter !== "all" ? 1 : 0) + (categoryFilter !== "all" ? 1 : 0) + (amountMin !== null || amountMax !== null ? 1 : 0) + (dateFilterType !== "all" ? 1 : 0) + (searchQuery ? 1 : 0)) >= 2 && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                setSearchQuery("");
+                setTypeFilter("all");
+                setPaymentMethodFilter("all");
+                setCategoryFilter("all");
+                setAmountMin(null);
+                setAmountMax(null);
+                setDateFilterType("all");
+                setCustomStartDate("");
+                setCustomEndDate("");
+                setCustomMonth("");
                 setCurrentPage(1);
-              }}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Select month" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 12 }, (_, i) => {
-                    const month = i + 1;
-                    return (
-                      <SelectItem key={month} value={`${customYear}-${String(month).padStart(2, "0")}`}>
-                        {format(new Date(parseInt(customYear), month - 1), "MMMM")}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        )}
-
-        {/* Custom Year Filter */}
-        {dateFilterType === "custom-year" && (
-          <div className="flex gap-2 flex-wrap items-end">
-            <div>
-              <Label className="text-xs text-muted-foreground">Year</Label>
-              <Input
-                type="number"
-                placeholder="2026"
-                value={customYear}
-                onChange={(e) => {
-                  setCustomYear(e.target.value);
-                  setCurrentPage(1);
-                }}
-                min={2000}
-                max={2100}
-                className="w-24"
-              />
-            </div>
-          </div>
-        )}
+              }}
+              className="w-full lg:w-auto"
+            >
+              <X className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Bulk Actions Bar */}
@@ -852,12 +909,6 @@ export default function Transactions() {
                       onCheckedChange={handleSelectAll}
                     />
                   </th>
-                  <th className="px-4 py-3 text-left cursor-pointer hover:bg-muted/70" onClick={() => toggleSort("date_created")}>
-                    <div className="flex items-center gap-2 font-semibold text-foreground">
-                      Date Created
-                      {getSortIcon("date_created")}
-                    </div>
-                  </th>
                   <th className="px-4 py-3 text-left font-semibold text-foreground">Title</th>
                   <th className="px-4 py-3 text-left hidden sm:table-cell font-semibold text-foreground">Category</th>
                   <th className="px-4 py-3 text-left font-semibold text-foreground">Type</th>
@@ -874,7 +925,12 @@ export default function Transactions() {
                     </div>
                   </th>
                   <th className="px-4 py-3 text-left hidden xl:table-cell font-semibold text-foreground">Payment Method</th>
-                  <th className="px-4 py-3 text-left hidden xl:table-cell font-semibold text-foreground">Frequency</th>
+                  <th className="px-4 py-3 text-left cursor-pointer hover:bg-muted/70" onClick={() => toggleSort("date_created")}>
+                    <div className="flex items-center gap-2 font-semibold text-foreground">
+                      Date Created
+                      {getSortIcon("date_created")}
+                    </div>
+                  </th>
                   <th className="px-4 py-3 text-center font-semibold text-foreground w-12">Actions</th>
                 </tr>
               </thead>
@@ -894,9 +950,6 @@ export default function Transactions() {
                           setAllSelectedRows(newSelected);
                         }}
                       />
-                    </td>
-                    <td className="px-4 py-3 text-foreground">
-                      {format(new Date(transaction.created_at || new Date()), "MMM dd, yyyy")}
                     </td>
                     <td className="px-4 py-3 font-medium text-foreground">{transaction.description || "Untitled"}</td>
                     <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
@@ -927,13 +980,8 @@ export default function Transactions() {
                     <td className="px-4 py-3 text-muted-foreground hidden xl:table-cell">
                       {accounts.find((a) => a.id === transaction.account_id)?.name || "—"}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground hidden xl:table-cell">
-                      <div className="flex items-center gap-1">
-                        <span className="capitalize">{transaction.frequency || "One-time"}</span>
-                        {transaction.frequency && transaction.frequency !== "one-time" && (
-                          <span className="text-xs text-muted-foreground">Next: Feb 07 2026</span>
-                        )}
-                      </div>
+                    <td className="px-4 py-3 text-foreground text-sm">
+                      {format(new Date(transaction.created_at || new Date()), "MMM dd, yyyy")}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <DropdownMenu>
