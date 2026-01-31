@@ -13,11 +13,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { CurrencyInput } from "@/components/ui/currency-input";
-import { Plus, ArrowUpRight, ArrowDownRight, Loader2, Trash2, Target, AlertCircle, Copy, Edit2, ChevronUp, ChevronDown, ArrowUpDown, MoreHorizontal, X } from "lucide-react";
+import { Plus, ArrowUpRight, ArrowDownRight, Loader2, Trash2, Target, AlertCircle, Copy, Edit2, ChevronUp, ChevronDown, ArrowUpDown, MoreHorizontal, X, Calendar as CalendarIcon } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 
 type SortField = "date_created" | "amount" | "transaction_date";
 type SortOrder = "asc" | "desc";
@@ -43,6 +45,8 @@ export default function Transactions() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<EditingTransaction>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchCategoryInput, setSearchCategoryInput] = useState("");
+  const [searchMonthInput, setSearchMonthInput] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -461,19 +465,7 @@ export default function Transactions() {
                 </TabsList>
               </Tabs>
 
-              {/* Amount */}
-              <div className="space-y-2">
-                <Label>Amount</Label>
-                <CurrencyInput 
-                  currencySymbol={currencySymbol}
-                  step="0.01" 
-                  value={formData.amount} 
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })} 
-                  required 
-                />
-              </div>
-
-              {/* Description */}
+              {/* Description - Top */}
               <div className="space-y-2">
                 <Label>Description</Label>
                 <Input 
@@ -483,7 +475,47 @@ export default function Transactions() {
                 />
               </div>
 
-              {/* Account & Category */}
+              {/* Amount & Transaction Date - Half Width */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Amount</Label>
+                  <CurrencyInput 
+                    currencySymbol={currencySymbol}
+                    step="0.01" 
+                    value={formData.amount} 
+                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })} 
+                    required 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Transaction Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {formData.transaction_date ? format(new Date(formData.transaction_date), "MMM dd, yyyy") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={new Date(formData.transaction_date)}
+                        onSelect={(date) => {
+                          if (date) {
+                            setFormData({ ...formData, transaction_date: format(date, "yyyy-MM-dd") });
+                          }
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              {/* Account & Category - Half Width */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Account</Label>
@@ -505,16 +537,6 @@ export default function Transactions() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-
-              {/* Date */}
-              <div className="space-y-2">
-                <Label>Transaction Date</Label>
-                <Input 
-                  type="date" 
-                  value={formData.transaction_date} 
-                  onChange={(e) => setFormData({ ...formData, transaction_date: e.target.value })} 
-                />
               </div>
 
               {/* Disabled Fields */}
@@ -672,23 +694,77 @@ export default function Transactions() {
             </SelectContent>
           </Select>
 
-          {/* Category Filter */}
-          <Select value={categoryFilter} onValueChange={(v) => {
-            setCategoryFilter(v);
-            setCurrentPage(1);
-          }}>
-            <SelectTrigger className="w-full lg:w-auto min-w-[130px]">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {categories.map((cat) => (
-                <SelectItem key={cat.id} value={cat.id}>
-                  {cat.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Category Filter with Tabs */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full lg:w-auto min-w-[130px]">
+                Category {(categoryFilter !== "all") && "✓"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56 p-4" align="end">
+              <div className="space-y-3">
+                <Input
+                  placeholder="Search categories..."
+                  value={searchCategoryInput}
+                  onChange={(e) => setSearchCategoryInput(e.target.value.toLowerCase())}
+                  className="h-8"
+                />
+                <Tabs defaultValue="all" onValueChange={(v) => {
+                  if (v === "all") {
+                    setCategoryFilter("all");
+                  }
+                }}>
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="all" onClick={() => {
+                      setCategoryFilter("all");
+                      setCurrentPage(1);
+                    }}>All</TabsTrigger>
+                    <TabsTrigger value="income">Income</TabsTrigger>
+                    <TabsTrigger value="expense">Expense</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  <button
+                    onClick={() => {
+                      setCategoryFilter("all");
+                      setCurrentPage(1);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm ${categoryFilter === "all" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                  >
+                    All Categories
+                  </button>
+                  {incomeCategories
+                    .filter((cat) => cat.name.toLowerCase().includes(searchCategoryInput))
+                    .map((cat) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => {
+                          setCategoryFilter(cat.id);
+                          setCurrentPage(1);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded text-sm ${categoryFilter === cat.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
+                  {expenseCategories
+                    .filter((cat) => cat.name.toLowerCase().includes(searchCategoryInput))
+                    .map((cat) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => {
+                          setCategoryFilter(cat.id);
+                          setCurrentPage(1);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded text-sm ${categoryFilter === cat.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Amount Range Dropdown */}
           <DropdownMenu>
@@ -759,62 +835,112 @@ export default function Transactions() {
 
                 {/* Custom Date */}
                 {dateFilterType === "custom-date" && (
-                  <div className="space-y-2 border-t pt-3">
-                    <Label className="text-xs text-muted-foreground">Start Date</Label>
-                    <Input
-                      type="date"
-                      value={customStartDate}
-                      onChange={(e) => {
-                        setCustomStartDate(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                    />
-                    <Label className="text-xs text-muted-foreground">End Date</Label>
-                    <Input
-                      type="date"
-                      value={customEndDate}
-                      onChange={(e) => {
-                        setCustomEndDate(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                    />
+                  <div className="space-y-3 border-t pt-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Start Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {customStartDate ? format(new Date(customStartDate), "MMM dd, yyyy") : "Pick start date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customStartDate ? new Date(customStartDate) : undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                setCustomStartDate(format(date, "yyyy-MM-dd"));
+                                setCurrentPage(1);
+                              }
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">End Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {customEndDate ? format(new Date(customEndDate), "MMM dd, yyyy") : "Pick end date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={customEndDate ? new Date(customEndDate) : undefined}
+                            onSelect={(date) => {
+                              if (date) {
+                                setCustomEndDate(format(date, "yyyy-MM-dd"));
+                                setCurrentPage(1);
+                              }
+                            }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
                 )}
 
                 {/* Custom Month */}
                 {dateFilterType === "custom-month" && (
-                  <div className="space-y-2 border-t pt-3">
-                    <Label className="text-xs text-muted-foreground">Year</Label>
-                    <Input
-                      type="number"
-                      placeholder="2026"
-                      value={customYear}
-                      onChange={(e) => {
-                        setCustomYear(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      min={2000}
-                      max={2100}
-                    />
-                    <Label className="text-xs text-muted-foreground">Month</Label>
-                    <Select value={customMonth} onValueChange={(v) => {
-                      setCustomMonth(v);
-                      setCurrentPage(1);
-                    }}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select month" />
-                      </SelectTrigger>
-                      <SelectContent>
+                  <div className="space-y-3 border-t pt-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Year</Label>
+                      <Input
+                        type="number"
+                        placeholder="2026"
+                        value={customYear}
+                        onChange={(e) => {
+                          setCustomYear(e.target.value);
+                          setCurrentPage(1);
+                        }}
+                        min={2000}
+                        max={2100}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Month</Label>
+                      <Input
+                        placeholder="Search month..."
+                        value={searchMonthInput}
+                        onChange={(e) => setSearchMonthInput(e.target.value.toLowerCase())}
+                        className="h-8 mb-2"
+                      />
+                      <div className="space-y-1 max-h-40 overflow-y-auto border border-border rounded">
                         {Array.from({ length: 12 }, (_, i) => {
                           const month = i + 1;
+                          const monthName = format(new Date(parseInt(customYear), month - 1), "MMMM");
+                          const monthValue = `${customYear}-${String(month).padStart(2, "0")}`;
+                          
+                          if (!monthName.toLowerCase().includes(searchMonthInput)) return null;
+                          
                           return (
-                            <SelectItem key={month} value={`${customYear}-${String(month).padStart(2, "0")}`}>
-                              {format(new Date(parseInt(customYear), month - 1), "MMMM")}
-                            </SelectItem>
+                            <button
+                              key={month}
+                              onClick={() => {
+                                setCustomMonth(monthValue);
+                                setCurrentPage(1);
+                              }}
+                              className={`w-full text-left px-3 py-2 text-sm ${customMonth === monthValue ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                            >
+                              {monthName}
+                            </button>
                           );
                         })}
-                      </SelectContent>
-                    </Select>
+                      </div>
+                    </div>
                   </div>
                 )}
 
