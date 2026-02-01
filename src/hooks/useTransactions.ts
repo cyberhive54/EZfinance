@@ -92,6 +92,8 @@ export function useTransactions() {
           account_id: transaction.account_id,
           transaction_date: transaction.transaction_date,
           currency: transaction.currency,
+          frequency: transaction.frequency,
+          notes: transaction.notes,
         })
         .eq("id", transaction.id)
         .select()

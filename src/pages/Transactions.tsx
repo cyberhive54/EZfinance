@@ -20,6 +20,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { uploadTransactionAttachment } from "@/utils/cloudinary";
+import { supabase } from "@/integrations/supabase/client";
 
 type SortField = "date_created" | "amount" | "transaction_date";
 type SortOrder = "asc" | "desc";
@@ -33,6 +35,8 @@ type EditingTransaction = {
   category_id: string;
   description: string;
   transaction_date: string;
+  frequency: "none" | "daily" | "weekly" | "monthly" | "yearly";
+  notes: string;
 } | null;
 
 export default function Transactions() {
@@ -64,6 +68,10 @@ export default function Transactions() {
   const [allSelectedRows, setAllSelectedRows] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  const [frequencyFilter, setFrequencyFilter] = useState<string>("all");
+  const [uploadingAttachments, setUploadingAttachments] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+
   const [formData, setFormData] = useState({
     type: "expense" as "income" | "expense",
     amount: "",
@@ -71,6 +79,8 @@ export default function Transactions() {
     category_id: "",
     description: "",
     transaction_date: format(new Date(), "yyyy-MM-dd"),
+    frequency: "none" as "none" | "daily" | "alternate_days" | "weekly" | "monthly" | "yearly",
+    notes: "",
   });
 
   const fmt = (amount: number) => formatCurrency(amount, preferredCurrency);
@@ -167,12 +177,18 @@ export default function Transactions() {
       }
     }
 
+    // Frequency filter
+    if (frequencyFilter !== "all") {
+      result = result.filter((t) => t.frequency === frequencyFilter);
+    }
+
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (t) =>
           t.description?.toLowerCase().includes(query) ||
+          t.notes?.toLowerCase().includes(query) ||
           categories.find((c) => c.id === t.category_id)?.name?.toLowerCase().includes(query)
       );
     }
@@ -208,7 +224,7 @@ export default function Transactions() {
     });
 
     return result;
-  }, [transactions, typeFilter, paymentMethodFilter, categoryFilter, amountMin, amountMax, dateFilterType, customStartDate, customEndDate, customMonth, customYear, searchQuery, sortField, sortOrder, categories]);
+  }, [transactions, typeFilter, paymentMethodFilter, categoryFilter, frequencyFilter, amountMin, amountMax, dateFilterType, customStartDate, customEndDate, customMonth, customYear, searchQuery, sortField, sortOrder, categories]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
@@ -245,6 +261,8 @@ export default function Transactions() {
       description: duplicateDescription,
       transaction_date: transaction.transaction_date,
       currency: transaction.currency,
+      frequency: transaction.frequency,
+      notes: transaction.notes || null,
     });
   };
 
@@ -286,6 +304,8 @@ export default function Transactions() {
       category_id: transaction.category_id || "",
       description: transaction.description || "",
       transaction_date: transaction.transaction_date,
+      frequency: transaction.frequency || "none",
+      notes: transaction.notes || "",
     });
     setFormData({
       type: transaction.type,
@@ -294,6 +314,8 @@ export default function Transactions() {
       category_id: transaction.category_id || "",
       description: transaction.description || "",
       transaction_date: transaction.transaction_date,
+      frequency: transaction.frequency || "none",
+      notes: transaction.notes || "",
     });
     setIsDialogOpen(true);
   };
@@ -364,18 +386,29 @@ export default function Transactions() {
       account_id: "", 
       category_id: "", 
       description: "", 
-      transaction_date: format(new Date(), "yyyy-MM-dd") 
+      transaction_date: format(new Date(), "yyyy-MM-dd"),
+      frequency: "none",
+      notes: "",
     });
     setGoalEnabled(false);
     setSelectedGoalId("");
     setGoalAllocationType("all");
     setGoalAmount("");
+    setUploadingAttachments([]);
+    setUploadProgress({});
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.account_id || !formData.amount || hasValidationError) return;
     
+    console.log("[v0] FORM SUBMIT: Starting transaction form submission", {
+      hasAttachments: uploadingAttachments.length > 0,
+      attachmentCount: uploadingAttachments.length,
+      isEditing: !!editingTransaction,
+      timestamp: new Date().toISOString(),
+    });
+
     const account = accounts.find((a) => a.id === formData.account_id);
     const transactionAmount = parseFloat(formData.amount);
     
@@ -397,26 +430,92 @@ export default function Transactions() {
       amount: transactionAmount,
       currency: account?.currency || "USD",
       category_id: formData.category_id || null,
-      notes: null,
       goal_id: finalGoalId,
       goal_amount: finalGoalAmount,
       goal_allocation_type: finalGoalAllocationType,
     };
 
-    if (editingTransaction) {
-      // Update existing transaction
-      await updateTransaction({
-        id: editingTransaction.id,
-        ...transactionData,
-      } as any);
-      resetEditState();
-    } else {
-      // Create new transaction
-      await createTransaction(transactionData);
-      resetForm();
-    }
+    try {
+      let createdTransactionId: string;
 
-    setIsDialogOpen(false);
+      if (editingTransaction) {
+        console.log("[v0] FORM SUBMIT: Updating existing transaction", {
+          transactionId: editingTransaction.id,
+        });
+        // Update existing transaction
+        await updateTransaction({
+          id: editingTransaction.id,
+          ...transactionData,
+        } as any);
+        createdTransactionId = editingTransaction.id;
+        resetEditState();
+      } else {
+        console.log("[v0] FORM SUBMIT: Creating new transaction");
+        // Create new transaction
+        const newTransaction = await createTransaction(transactionData);
+        createdTransactionId = newTransaction.id;
+        console.log("[v0] FORM SUBMIT: New transaction created", {
+          transactionId: createdTransactionId,
+        });
+      }
+
+      // Upload attachments after transaction is created/updated
+      if (uploadingAttachments.length > 0) {
+        console.log("[v0] FORM SUBMIT: Starting attachment uploads", {
+          count: uploadingAttachments.length,
+          transactionId: createdTransactionId,
+        });
+
+        for (const file of uploadingAttachments) {
+          try {
+            setUploadProgress((prev) => ({ ...prev, [file.name]: 10 }));
+            console.log("[v0] FORM SUBMIT: Uploading file to Cloudinary", {
+              fileName: file.name,
+              fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+            });
+
+            const uploadedFile = await uploadTransactionAttachment(file);
+            setUploadProgress((prev) => ({ ...prev, [file.name]: 50 }));
+
+            console.log("[v0] FORM SUBMIT: File uploaded to Cloudinary, saving to database", {
+              publicId: uploadedFile.public_id,
+            });
+
+            await supabase.from("transaction_attachments").insert([
+              {
+                transaction_id: createdTransactionId,
+                cloudinary_public_id: uploadedFile.public_id,
+                cloudinary_url: uploadedFile.secure_url,
+                original_filename: uploadedFile.original_filename,
+                file_size: uploadedFile.bytes,
+              },
+            ]);
+
+            setUploadProgress((prev) => ({ ...prev, [file.name]: 100 }));
+            console.log("[v0] FORM SUBMIT: Attachment saved successfully", {
+              fileName: file.name,
+            });
+          } catch (error) {
+            console.error("[v0] FORM SUBMIT ERROR: Attachment processing failed", {
+              fileName: file.name,
+              error: error instanceof Error ? error.message : "Unknown error",
+            });
+          }
+        }
+
+        console.log("[v0] FORM SUBMIT: All attachments processed");
+        setUploadingAttachments([]);
+        setUploadProgress({});
+      }
+
+      resetForm();
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error("[v0] FORM SUBMIT ERROR: Transaction submission failed", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+    }
   };
 
   const handleTypeChange = (type: "income" | "expense") => {
@@ -465,9 +564,9 @@ export default function Transactions() {
                 </TabsList>
               </Tabs>
 
-              {/* Description - Top */}
+              {/* Title - Top */}
               <div className="space-y-2">
-                <Label>Description</Label>
+                <Label>Title</Label>
                 <Input 
                   placeholder="e.g., Grocery shopping"
                   value={formData.description} 
@@ -539,21 +638,70 @@ export default function Transactions() {
                 </div>
               </div>
 
-              {/* Disabled Fields */}
+              {/* Frequency & Notes */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Frequency</Label>
-                  <Input disabled value="One-time" className="opacity-50" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Attachment</Label>
-                  <Input disabled placeholder="N/A" className="opacity-50" />
+                  <Select value={formData.frequency} onValueChange={(v: any) => setFormData({ ...formData, frequency: v })}>
+                    <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="yearly">Yearly</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
+              {/* Notes */}
               <div className="space-y-2">
                 <Label>Notes</Label>
-                <Input disabled placeholder="N/A" className="opacity-50" />
+                <Input 
+                  placeholder="Add notes for this transaction..."
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                />
+              </div>
+
+              {/* Attachments */}
+              <div className="space-y-2">
+                <Label>Attachments</Label>
+                <div className="flex items-center gap-2">
+                  <Input 
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      setUploadingAttachments(prev => [...prev, ...files]);
+                    }}
+                    className="cursor-pointer"
+                  />
+                </div>
+                {uploadingAttachments.length > 0 && (
+                  <div className="mt-2 space-y-1 rounded bg-muted p-2">
+                    {uploadingAttachments.map((file, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-sm">
+                        <span>{file.name} ({(file.size / 1024 / 1024).toFixed(2)}MB)</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setUploadingAttachments(prev => prev.filter((_, i) => i !== idx));
+                            const newProgress = { ...uploadProgress };
+                            delete newProgress[file.name];
+                            setUploadProgress(newProgress);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Goal Section */}
@@ -766,6 +914,74 @@ export default function Transactions() {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Frequency Filter */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full lg:w-auto">
+                Frequency {(frequencyFilter !== "all") && "✓"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-48 p-4" align="end">
+              <div className="space-y-1">
+                <button
+                  onClick={() => {
+                    setFrequencyFilter("all");
+                    setCurrentPage(1);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded text-sm ${frequencyFilter === "all" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => {
+                    setFrequencyFilter("none");
+                    setCurrentPage(1);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded text-sm ${frequencyFilter === "none" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  None
+                </button>
+                <button
+                  onClick={() => {
+                    setFrequencyFilter("daily");
+                    setCurrentPage(1);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded text-sm ${frequencyFilter === "daily" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  Daily
+                </button>
+
+                <button
+                  onClick={() => {
+                    setFrequencyFilter("weekly");
+                    setCurrentPage(1);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded text-sm ${frequencyFilter === "weekly" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  Weekly
+                </button>
+                <button
+                  onClick={() => {
+                    setFrequencyFilter("monthly");
+                    setCurrentPage(1);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded text-sm ${frequencyFilter === "monthly" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => {
+                    setFrequencyFilter("yearly");
+                    setCurrentPage(1);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded text-sm ${frequencyFilter === "yearly" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                >
+                  Yearly
+                </button>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {/* Amount Range Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -966,7 +1182,7 @@ export default function Transactions() {
           </DropdownMenu>
 
           {/* Clear Filters Button - Show when 2+ filters active */}
-          {((typeFilter !== "all" ? 1 : 0) + (paymentMethodFilter !== "all" ? 1 : 0) + (categoryFilter !== "all" ? 1 : 0) + (amountMin !== null || amountMax !== null ? 1 : 0) + (dateFilterType !== "all" ? 1 : 0) + (searchQuery ? 1 : 0)) >= 2 && (
+          {((typeFilter !== "all" ? 1 : 0) + (paymentMethodFilter !== "all" ? 1 : 0) + (categoryFilter !== "all" ? 1 : 0) + (frequencyFilter !== "all" ? 1 : 0) + (amountMin !== null || amountMax !== null ? 1 : 0) + (dateFilterType !== "all" ? 1 : 0) + (searchQuery ? 1 : 0)) >= 2 && (
             <Button 
               variant="outline" 
               size="sm"
@@ -975,6 +1191,7 @@ export default function Transactions() {
                 setTypeFilter("all");
                 setPaymentMethodFilter("all");
                 setCategoryFilter("all");
+                setFrequencyFilter("all");
                 setAmountMin(null);
                 setAmountMax(null);
                 setDateFilterType("all");
@@ -1051,6 +1268,9 @@ export default function Transactions() {
                     </div>
                   </th>
                   <th className="px-4 py-3 text-left hidden xl:table-cell font-semibold text-foreground">Payment Method</th>
+                  <th className="px-4 py-3 text-left hidden md:table-cell font-semibold text-foreground">Frequency</th>
+                  <th className="px-4 py-3 text-left hidden lg:table-cell font-semibold text-foreground">Notes</th>
+                  <th className="px-4 py-3 text-center hidden md:table-cell font-semibold text-foreground">Attachments</th>
                   <th className="px-4 py-3 text-left cursor-pointer hover:bg-muted/70" onClick={() => toggleSort("date_created")}>
                     <div className="flex items-center gap-2 font-semibold text-foreground">
                       Date Created
@@ -1105,6 +1325,15 @@ export default function Transactions() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground hidden xl:table-cell">
                       {accounts.find((a) => a.id === transaction.account_id)?.name || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell text-sm">
+                      <span className="capitalize">{transaction.frequency || "none"}</span>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell text-sm max-w-[200px] truncate">
+                      {transaction.notes || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-center hidden md:table-cell text-sm">
+                      <span className="text-muted-foreground">—</span>
                     </td>
                     <td className="px-4 py-3 text-foreground text-sm">
                       {format(new Date(transaction.created_at || new Date()), "MMM dd, yyyy")}
