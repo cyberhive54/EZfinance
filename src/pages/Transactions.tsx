@@ -3,6 +3,7 @@ import { useTransactions } from "@/hooks/useTransactions";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useGoals, Goal } from "@/hooks/useGoals";
 import { useProfile, formatCurrency, getCurrencySymbol } from "@/hooks/useProfile";
+import { useAuth } from "@/contexts/AuthContext";
 import { TransactionsSkeleton } from "@/components/skeletons/PageSkeletons";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ type EditingTransaction = {
 } | null;
 
 export default function Transactions() {
+  const { user } = useAuth();
   const { transactions, categories, isLoading, createTransaction, updateTransaction, deleteTransaction, isCreating, isUpdating } = useTransactions();
   const { accounts } = useAccounts();
   const { goals } = useGoals();
@@ -479,15 +481,15 @@ export default function Transactions() {
 
             console.log("[v0] FORM SUBMIT: File uploaded to Cloudinary, saving to database", {
               publicId: uploadedFile.public_id,
+              userId: user?.id,
             });
 
-            const { user: currentUser } = await supabase.auth.getUser();
-            if (!currentUser?.user) throw new Error("User not authenticated");
+            if (!user?.id) throw new Error("User not authenticated");
 
             await supabase.from("transaction_attachments").insert([
               {
                 transaction_id: createdTransactionId,
-                user_id: currentUser.user.id,
+                user_id: user.id,
                 cloudinary_public_id: uploadedFile.public_id,
                 cloudinary_url: uploadedFile.secure_url,
                 file_name: uploadedFile.original_filename,
