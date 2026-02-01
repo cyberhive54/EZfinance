@@ -20,6 +20,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { uploadTransactionAttachment } from "@/utils/cloudinary";
+import { supabase } from "@/integrations/supabase/client";
 
 type SortField = "date_created" | "amount" | "transaction_date";
 type SortOrder = "asc" | "desc";
@@ -400,6 +402,13 @@ export default function Transactions() {
     e.preventDefault();
     if (!formData.account_id || !formData.amount || hasValidationError) return;
     
+    console.log("[v0] FORM SUBMIT: Starting transaction form submission", {
+      hasAttachments: uploadingAttachments.length > 0,
+      attachmentCount: uploadingAttachments.length,
+      isEditing: !!editingTransaction,
+      timestamp: new Date().toISOString(),
+    });
+
     const account = accounts.find((a) => a.id === formData.account_id);
     const transactionAmount = parseFloat(formData.amount);
     
@@ -426,20 +435,87 @@ export default function Transactions() {
       goal_allocation_type: finalGoalAllocationType,
     };
 
-    if (editingTransaction) {
-      // Update existing transaction
-      await updateTransaction({
-        id: editingTransaction.id,
-        ...transactionData,
-      } as any);
-      resetEditState();
-    } else {
-      // Create new transaction
-      await createTransaction(transactionData);
-      resetForm();
-    }
+    try {
+      let createdTransactionId: string;
 
-    setIsDialogOpen(false);
+      if (editingTransaction) {
+        console.log("[v0] FORM SUBMIT: Updating existing transaction", {
+          transactionId: editingTransaction.id,
+        });
+        // Update existing transaction
+        await updateTransaction({
+          id: editingTransaction.id,
+          ...transactionData,
+        } as any);
+        createdTransactionId = editingTransaction.id;
+        resetEditState();
+      } else {
+        console.log("[v0] FORM SUBMIT: Creating new transaction");
+        // Create new transaction
+        const newTransaction = await createTransaction(transactionData);
+        createdTransactionId = newTransaction.id;
+        console.log("[v0] FORM SUBMIT: New transaction created", {
+          transactionId: createdTransactionId,
+        });
+      }
+
+      // Upload attachments after transaction is created/updated
+      if (uploadingAttachments.length > 0) {
+        console.log("[v0] FORM SUBMIT: Starting attachment uploads", {
+          count: uploadingAttachments.length,
+          transactionId: createdTransactionId,
+        });
+
+        for (const file of uploadingAttachments) {
+          try {
+            setUploadProgress((prev) => ({ ...prev, [file.name]: 10 }));
+            console.log("[v0] FORM SUBMIT: Uploading file to Cloudinary", {
+              fileName: file.name,
+              fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+            });
+
+            const uploadedFile = await uploadTransactionAttachment(file);
+            setUploadProgress((prev) => ({ ...prev, [file.name]: 50 }));
+
+            console.log("[v0] FORM SUBMIT: File uploaded to Cloudinary, saving to database", {
+              publicId: uploadedFile.public_id,
+            });
+
+            await supabase.from("transaction_attachments").insert([
+              {
+                transaction_id: createdTransactionId,
+                cloudinary_public_id: uploadedFile.public_id,
+                cloudinary_url: uploadedFile.secure_url,
+                original_filename: uploadedFile.original_filename,
+                file_size: uploadedFile.bytes,
+              },
+            ]);
+
+            setUploadProgress((prev) => ({ ...prev, [file.name]: 100 }));
+            console.log("[v0] FORM SUBMIT: Attachment saved successfully", {
+              fileName: file.name,
+            });
+          } catch (error) {
+            console.error("[v0] FORM SUBMIT ERROR: Attachment processing failed", {
+              fileName: file.name,
+              error: error instanceof Error ? error.message : "Unknown error",
+            });
+          }
+        }
+
+        console.log("[v0] FORM SUBMIT: All attachments processed");
+        setUploadingAttachments([]);
+        setUploadProgress({});
+      }
+
+      resetForm();
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error("[v0] FORM SUBMIT ERROR: Transaction submission failed", {
+        error: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+    }
   };
 
   const handleTypeChange = (type: "income" | "expense") => {

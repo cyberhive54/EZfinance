@@ -20,16 +20,42 @@ export interface CloudinaryUploadResponse {
 export async function uploadTransactionAttachment(
   file: File
 ): Promise<CloudinaryUploadResponse> {
+  console.log("[v0] ATTACHMENT UPLOAD: Starting upload process", {
+    fileName: file.name,
+    fileType: file.type,
+    fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+    timestamp: new Date().toISOString(),
+  });
+
   // Validate file
   if (!ALLOWED_FORMATS.includes(file.type)) {
+    console.error("[v0] ATTACHMENT ERROR: Invalid file type", {
+      receivedType: file.type,
+      allowedTypes: ALLOWED_FORMATS,
+    });
     throw new Error("Invalid file type. Only JPEG, PNG, and WebP images are allowed.");
   }
 
   if (file.size > MAX_FILE_SIZE) {
+    console.error("[v0] ATTACHMENT ERROR: File size exceeds limit", {
+      fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      maxSize: `${(MAX_FILE_SIZE / 1024 / 1024).toFixed(2)}MB`,
+    });
     throw new Error("File size exceeds 6MB limit.");
   }
 
+  console.log("[v0] ATTACHMENT: Environment variables check", {
+    cloudNameExists: !!CLOUDINARY_CLOUD_NAME,
+    uploadPresetExists: !!CLOUDINARY_UPLOAD_PRESET,
+    cloudName: CLOUDINARY_CLOUD_NAME?.substring(0, 5) + "***",
+    uploadPreset: CLOUDINARY_UPLOAD_PRESET?.substring(0, 5) + "***",
+  });
+
   if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+    console.error("[v0] ATTACHMENT ERROR: Missing Cloudinary configuration", {
+      VITE_CLOUDINARY_CLOUD_NAME: process.env.VITE_CLOUDINARY_CLOUD_NAME,
+      VITE_CLOUDINARY_UPLOAD_PRESET: process.env.VITE_CLOUDINARY_UPLOAD_PRESET,
+    });
     throw new Error("Cloudinary configuration is missing. Please check environment variables.");
   }
 
@@ -38,6 +64,10 @@ export async function uploadTransactionAttachment(
   formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
   formData.append("cloud_name", CLOUDINARY_CLOUD_NAME);
   formData.append("folder", "ezfinance/transactions");
+
+  console.log("[v0] ATTACHMENT: Sending upload request to Cloudinary", {
+    uploadUrl: `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+  });
 
   try {
     const response = await fetch(
@@ -48,12 +78,29 @@ export async function uploadTransactionAttachment(
       }
     );
 
+    console.log("[v0] ATTACHMENT: Cloudinary response received", {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+    });
+
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || "Upload failed");
+      const errorData = await response.json();
+      console.error("[v0] ATTACHMENT ERROR: Upload failed", {
+        status: response.status,
+        errorMessage: errorData.error?.message,
+        errorData: errorData,
+      });
+      throw new Error(errorData.error?.message || "Upload failed");
     }
 
     const data = await response.json();
+    console.log("[v0] ATTACHMENT: Upload successful", {
+      publicId: data.public_id,
+      url: data.secure_url?.substring(0, 50) + "***",
+      fileSize: `${(data.bytes / 1024 / 1024).toFixed(2)}MB`,
+    });
+
     return {
       public_id: data.public_id,
       secure_url: data.secure_url,
@@ -61,6 +108,10 @@ export async function uploadTransactionAttachment(
       bytes: data.bytes,
     };
   } catch (error) {
+    console.error("[v0] ATTACHMENT ERROR: Upload request failed", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     if (error instanceof Error) {
       throw error;
     }
