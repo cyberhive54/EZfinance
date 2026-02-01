@@ -23,6 +23,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { uploadTransactionAttachment } from "@/utils/cloudinary";
 import { supabase } from "@/integrations/supabase/client";
+import { useTransactionAttachments } from "@/hooks/useTransactionAttachments";
+import { FileImage } from "lucide-react";
 
 type SortField = "date_created" | "amount" | "transaction_date";
 type SortOrder = "asc" | "desc";
@@ -39,6 +41,26 @@ type EditingTransaction = {
   frequency: "none" | "daily" | "weekly" | "monthly" | "yearly";
   notes: string;
 } | null;
+
+// AttachmentCell component to display attachments for a transaction
+function AttachmentCell({ transactionId }: { transactionId: string }) {
+  const { attachments, isLoading } = useTransactionAttachments(transactionId);
+  
+  if (isLoading) {
+    return <span className="text-muted-foreground text-xs">Loading...</span>;
+  }
+
+  if (attachments.length === 0) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <FileImage className="h-4 w-4 text-accent" />
+      <span className="text-sm font-medium text-accent">{attachments.length}</span>
+    </div>
+  );
+}
 
 export default function Transactions() {
   const { user } = useAuth();
@@ -73,6 +95,8 @@ export default function Transactions() {
   const [frequencyFilter, setFrequencyFilter] = useState<string>("all");
   const [uploadingAttachments, setUploadingAttachments] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+  const { attachments: existingAttachments } = useTransactionAttachments(editingTransactionId || undefined);
 
   const [formData, setFormData] = useState({
     type: "expense" as "income" | "expense",
@@ -309,6 +333,7 @@ export default function Transactions() {
       frequency: transaction.frequency || "none",
       notes: transaction.notes || "",
     });
+    setEditingTransactionId(transaction.id);
     setFormData({
       type: transaction.type,
       amount: transaction.amount.toString(),
@@ -324,6 +349,7 @@ export default function Transactions() {
 
   const resetEditState = () => {
     setEditingTransaction(null);
+    setEditingTransactionId(null);
     resetForm();
   };
 
@@ -719,8 +745,35 @@ export default function Transactions() {
                     className="cursor-pointer"
                   />
                 </div>
+                {/* Existing Attachments */}
+                {existingAttachments.length > 0 && (
+                  <div className="mt-3 rounded bg-accent/10 p-2 border border-accent/20">
+                    <p className="text-xs font-semibold text-accent mb-2">Existing Attachments:</p>
+                    <div className="space-y-1">
+                      {existingAttachments.map((attachment) => (
+                        <div key={attachment.id} className="flex items-center gap-2 text-sm">
+                          <FileImage className="h-3 w-3 text-accent" />
+                          <a
+                            href={attachment.cloudinary_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-accent hover:underline truncate flex-1"
+                          >
+                            {attachment.file_name || "Image"}
+                          </a>
+                          <span className="text-xs text-muted-foreground">
+                            {(attachment.file_size / 1024 / 1024).toFixed(2)}MB
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* New Attachments to Upload */}
                 {uploadingAttachments.length > 0 && (
                   <div className="mt-2 space-y-1 rounded bg-muted p-2">
+                    <p className="text-xs font-semibold text-muted-foreground mb-1">New Files:</p>
                     {uploadingAttachments.map((file, idx) => (
                       <div key={idx} className="flex items-center justify-between text-sm">
                         <span>{file.name} ({(file.size / 1024 / 1024).toFixed(2)}MB)</span>
@@ -1372,7 +1425,7 @@ export default function Transactions() {
                       {transaction.notes || "—"}
                     </td>
                     <td className="px-4 py-3 text-center hidden md:table-cell text-sm">
-                      <span className="text-muted-foreground">—</span>
+                      <AttachmentCell transactionId={transaction.id} />
                     </td>
                     <td className="px-4 py-3 text-foreground text-sm">
                       {format(new Date(transaction.created_at || new Date()), "MMM dd, yyyy")}
