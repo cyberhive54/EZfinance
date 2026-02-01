@@ -46,11 +46,23 @@ export interface Transaction {
   description: string | null;
   notes: string | null;
   transaction_date: string;
+  frequency: "none" | "daily" | "alternate_days" | "weekly" | "monthly" | "yearly";
   goal_id: string | null;
   goal_amount: number | null;
   goal_allocation_type: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface TransactionAttachment {
+  id: string;
+  transaction_id: string;
+  user_id: string;
+  cloudinary_public_id: string;
+  cloudinary_url: string;
+  original_filename: string;
+  file_size: number;
+  created_at: string;
 }
 
 export type AccountType = "bank" | "cash" | "wallet" | "credit" | "investment" | "crypto" | "other";
