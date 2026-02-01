@@ -43,7 +43,7 @@ export default function Transactions() {
   const { transactions, categories, isLoading, createTransaction, updateTransaction, deleteTransaction, isCreating, isUpdating } = useTransactions();
   const { accounts } = useAccounts();
   const { goals } = useGoals();
-  const { preferredCurrency } = useProfile();
+  const { preferredCurrency, user } = useProfile();
   const currencySymbol = getCurrencySymbol(preferredCurrency);
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -479,26 +479,49 @@ export default function Transactions() {
 
             console.log("[v0] FORM SUBMIT: File uploaded to Cloudinary, saving to database", {
               publicId: uploadedFile.public_id,
+              userId: user?.id,
+              transactionId: createdTransactionId,
             });
 
-            await supabase.from("transaction_attachments").insert([
-              {
-                transaction_id: createdTransactionId,
-                cloudinary_public_id: uploadedFile.public_id,
-                cloudinary_url: uploadedFile.secure_url,
-                original_filename: uploadedFile.original_filename,
-                file_size: uploadedFile.bytes,
-              },
-            ]);
+            const insertPayload = {
+              transaction_id: createdTransactionId,
+              user_id: user?.id,
+              cloudinary_public_id: uploadedFile.public_id,
+              cloudinary_url: uploadedFile.secure_url,
+              original_filename: uploadedFile.original_filename,
+              file_size: uploadedFile.bytes,
+            };
 
-            setUploadProgress((prev) => ({ ...prev, [file.name]: 100 }));
+            console.log("[v0] FORM SUBMIT: Insert payload", insertPayload);
+
+            const { data: savedAttachment, error: insertError } = await supabase
+              .from("transaction_attachments")
+              .insert([insertPayload])
+              .select();
+
+            if (insertError) {
+              console.error("[v0] FORM SUBMIT ERROR: Supabase insert error", {
+                code: insertError.code,
+                message: insertError.message,
+                details: insertError.details,
+                hint: insertError.hint,
+                insertPayload,
+              });
+              throw insertError;
+            }
+
             console.log("[v0] FORM SUBMIT: Attachment saved successfully", {
               fileName: file.name,
+              attachmentId: savedAttachment?.[0]?.id,
+              savedData: savedAttachment,
             });
+
+            setUploadProgress((prev) => ({ ...prev, [file.name]: 100 }));
           } catch (error) {
             console.error("[v0] FORM SUBMIT ERROR: Attachment processing failed", {
               fileName: file.name,
               error: error instanceof Error ? error.message : "Unknown error",
+              stack: error instanceof Error ? error.stack : undefined,
             });
           }
         }

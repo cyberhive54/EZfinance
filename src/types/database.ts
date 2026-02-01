@@ -65,6 +65,17 @@ export interface TransactionAttachment {
   created_at: string;
 }
 
+export interface ProfilePhoto {
+  id: string;
+  user_id: string;
+  cloudinary_public_id: string;
+  cloudinary_url: string;
+  original_filename: string | null;
+  file_size: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type AccountType = "bank" | "cash" | "wallet" | "credit" | "investment" | "crypto" | "other";
 
 export const ACCOUNT_TYPES: { value: AccountType; label: string }[] = [
