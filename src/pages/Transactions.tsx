@@ -33,7 +33,7 @@ type EditingTransaction = {
   category_id: string;
   description: string;
   transaction_date: string;
-  frequency: "none" | "daily" | "alternate_days" | "weekly" | "monthly" | "yearly";
+  frequency: "none" | "daily" | "weekly" | "monthly" | "yearly";
   notes: string;
 } | null;
 
@@ -488,9 +488,9 @@ export default function Transactions() {
                 </TabsList>
               </Tabs>
 
-              {/* Description - Top */}
+              {/* Title - Top */}
               <div className="space-y-2">
-                <Label>Description</Label>
+                <Label>Title</Label>
                 <Input 
                   placeholder="e.g., Grocery shopping"
                   value={formData.description} 
@@ -571,7 +571,6 @@ export default function Transactions() {
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
                       <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="alternate_days">Alternate Days</SelectItem>
                       <SelectItem value="weekly">Weekly</SelectItem>
                       <SelectItem value="monthly">Monthly</SelectItem>
                       <SelectItem value="yearly">Yearly</SelectItem>
@@ -875,15 +874,7 @@ export default function Transactions() {
                 >
                   Daily
                 </button>
-                <button
-                  onClick={() => {
-                    setFrequencyFilter("alternate_days");
-                    setCurrentPage(1);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded text-sm ${frequencyFilter === "alternate_days" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-                >
-                  Alternate Days
-                </button>
+
                 <button
                   onClick={() => {
                     setFrequencyFilter("weekly");

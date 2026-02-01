@@ -46,7 +46,7 @@ export interface Transaction {
   description: string | null;
   notes: string | null;
   transaction_date: string;
-  frequency: "none" | "daily" | "alternate_days" | "weekly" | "monthly" | "yearly";
+  frequency: "none" | "daily" | "weekly" | "monthly" | "yearly";
   goal_id: string | null;
   goal_amount: number | null;
   goal_allocation_type: string | null;
