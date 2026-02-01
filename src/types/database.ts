@@ -7,6 +7,8 @@ export interface Profile {
   theme: string;
   timezone: string | null;
   default_account_id: string | null;
+  profile_photo_url: string | null;
+  profile_photo_cloudinary_public_id: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -481,13 +481,18 @@ export default function Transactions() {
               publicId: uploadedFile.public_id,
             });
 
+            const { user: currentUser } = await supabase.auth.getUser();
+            if (!currentUser?.user) throw new Error("User not authenticated");
+
             await supabase.from("transaction_attachments").insert([
               {
                 transaction_id: createdTransactionId,
+                user_id: currentUser.user.id,
                 cloudinary_public_id: uploadedFile.public_id,
                 cloudinary_url: uploadedFile.secure_url,
-                original_filename: uploadedFile.original_filename,
+                file_name: uploadedFile.original_filename,
                 file_size: uploadedFile.bytes,
+                file_type: file.type,
               },
             ]);
 
@@ -675,7 +680,39 @@ export default function Transactions() {
                     multiple
                     onChange={(e) => {
                       const files = Array.from(e.target.files || []);
-                      setUploadingAttachments(prev => [...prev, ...files]);
+                      const validFiles: File[] = [];
+                      
+                      for (const file of files) {
+                        // Validate file type
+                        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+                        if (!allowedTypes.includes(file.type)) {
+                          console.log("[v0] FILE VALIDATION: Invalid file type", {
+                            fileName: file.name,
+                            fileType: file.type,
+                            allowedTypes,
+                          });
+                          alert(`${file.name} has an invalid format. Only JPG, JPEG, PNG, and WebP images are allowed.`);
+                          continue;
+                        }
+
+                        // Validate file size (6MB = 6291456 bytes)
+                        const MAX_SIZE = 6 * 1024 * 1024;
+                        if (file.size > MAX_SIZE) {
+                          console.log("[v0] FILE VALIDATION: File size exceeds limit", {
+                            fileName: file.name,
+                            fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+                            maxSize: `${(MAX_SIZE / 1024 / 1024).toFixed(2)}MB`,
+                          });
+                          alert(`${file.name} exceeds the 6MB size limit. File size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+                          continue;
+                        }
+
+                        validFiles.push(file);
+                      }
+
+                      if (validFiles.length > 0) {
+                        setUploadingAttachments(prev => [...prev, ...validFiles]);
+                      }
                     }}
                     className="cursor-pointer"
                   />
