@@ -24,8 +24,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { uploadTransactionAttachment } from "@/utils/cloudinary";
 import { supabase } from "@/integrations/supabase/client";
 import { useTransactionAttachments } from "@/hooks/useTransactionAttachments";
-import { useNavigate } from "react-router-dom";
-import { FileImage, Upload } from "lucide-react";
+import { FileImage } from "lucide-react";
 
 type SortField = "date_created" | "amount" | "transaction_date";
 type SortOrder = "asc" | "desc";
@@ -64,7 +63,6 @@ function AttachmentCell({ transactionId }: { transactionId: string }) {
 }
 
 export default function Transactions() {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { transactions, categories, isLoading, createTransaction, updateTransaction, deleteTransaction, isCreating, isUpdating } = useTransactions();
   const { accounts } = useAccounts();
@@ -577,34 +575,16 @@ export default function Transactions() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">Transactions</h1>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => navigate("/bulk-import")}
-            title="Bulk Import Transactions"
-            className="md:hidden"
-          >
-            <Upload className="h-5 w-5" />
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => navigate("/bulk-import")}
-            className="hidden md:flex"
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Bulk Import
-          </Button>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => { 
-            setIsDialogOpen(open); 
-            if (!open) resetEditState(); 
-          }}>
-            <DialogTrigger asChild>
-              <Button size="icon" className="md:hidden"><Plus className="h-5 w-5" /></Button>
-            </DialogTrigger>
-            <DialogTrigger asChild>
-              <Button className="hidden md:flex"><Plus className="mr-2 h-4 w-4" />{editingTransaction ? "Edit" : "Add"} Transaction</Button>
-            </DialogTrigger>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { 
+          setIsDialogOpen(open); 
+          if (!open) resetEditState(); 
+        }}>
+          <DialogTrigger asChild>
+            <Button size="icon" className="md:hidden"><Plus className="h-5 w-5" /></Button>
+          </DialogTrigger>
+          <DialogTrigger asChild>
+            <Button className="hidden md:flex"><Plus className="mr-2 h-4 w-4" />{editingTransaction ? "Edit" : "Add"} Transaction</Button>
+          </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
             <DialogHeader>
               <DialogTitle>{editingTransaction ? "Edit" : "Add"} Transaction</DialogTitle>
@@ -905,8 +885,7 @@ export default function Transactions() {
               </Button>
             </form>
           </DialogContent>
-          </Dialog>
-        </div>
+        </Dialog>
       </div>
 
       {/* Search and Filters - One Line on PC */}
