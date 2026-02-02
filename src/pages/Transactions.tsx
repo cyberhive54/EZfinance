@@ -14,13 +14,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { CurrencyInput } from "@/components/ui/currency-input";
-import { Plus, ArrowUpRight, ArrowDownRight, Loader2, Trash2, Target, AlertCircle, Copy, Edit2, ChevronUp, ChevronDown, ArrowUpDown, MoreHorizontal, X, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, ArrowUpRight, ArrowDownRight, Loader2, Trash2, Target, AlertCircle, Copy, Edit2, ChevronUp, ChevronDown, ArrowUpDown, MoreHorizontal, X, Calendar as CalendarIcon, Download, Eye } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { uploadTransactionAttachment } from "@/utils/cloudinary";
 import { supabase } from "@/integrations/supabase/client";
 import { useTransactionAttachments } from "@/hooks/useTransactionAttachments";
@@ -42,9 +43,10 @@ type EditingTransaction = {
   notes: string;
 } | null;
 
-// AttachmentCell component to display attachments for a transaction
+// AttachmentCell component to display attachments for a transaction with modal
 function AttachmentCell({ transactionId }: { transactionId: string }) {
   const { attachments, isLoading } = useTransactionAttachments(transactionId);
+  const [isOpen, setIsOpen] = useState(false);
   
   if (isLoading) {
     return <span className="text-muted-foreground text-xs">Loading...</span>;
@@ -54,11 +56,67 @@ function AttachmentCell({ transactionId }: { transactionId: string }) {
     return <span className="text-muted-foreground">—</span>;
   }
 
+  const handleDownload = (url: string, fileName: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
-    <div className="flex items-center gap-1">
-      <FileImage className="h-4 w-4 text-accent" />
-      <span className="text-sm font-medium text-accent">{attachments.length}</span>
-    </div>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <button className="flex items-center gap-1 cursor-pointer hover:opacity-70 transition-opacity">
+          <FileImage className="h-4 w-4 text-accent" />
+          <span className="text-sm font-medium text-accent">{attachments.length}</span>
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Transaction Attachments ({attachments.length})</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 max-h-96 overflow-y-auto p-4">
+          {attachments.map((attachment) => (
+            <div key={attachment.id} className="flex items-start gap-3 border border-border rounded-lg p-3 hover:bg-muted/50 transition-colors">
+              <img 
+                src={attachment.cloudinary_url} 
+                alt={attachment.file_name || "Attachment"}
+                className="h-16 w-16 object-cover rounded border border-border/50 flex-shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">{attachment.file_name || "Image"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {attachment.file_size ? `${(attachment.file_size / 1024 / 1024).toFixed(2)} MB` : "N/A"}
+                </p>
+                {attachment.cloudinary_url && (
+                  <p className="text-xs text-muted-foreground truncate break-all">{attachment.cloudinary_url}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <a 
+                  href={attachment.cloudinary_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="p-2 hover:bg-background rounded transition-colors"
+                  title="View"
+                >
+                  <Eye className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                </a>
+                <button
+                  onClick={() => handleDownload(attachment.cloudinary_url, attachment.file_name || "attachment")}
+                  className="p-2 hover:bg-background rounded transition-colors"
+                  title="Download"
+                >
+                  <Download className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
