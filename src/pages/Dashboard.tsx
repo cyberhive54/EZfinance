@@ -40,9 +40,6 @@ export default function Dashboard() {
   const { accounts } = useAccounts();
   const { categories } = useCategories();
   
-  console.log("[v0-debug] Dashboard render - profileLoading:", profileLoading, "dashboardLoading:", dashboardLoading);
-  console.log("[v0-debug] accounts:", accounts?.length, "categories:", categories?.length);
-  
   // Date filter state
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>("this-month");
   const [customStartDate, setCustomStartDate] = useState<string>("");
@@ -62,13 +59,8 @@ export default function Dashboard() {
     customYear
   );
 
-  console.log("[v0-debug] statsLoading:", statsLoading);
-  console.log("[v0-debug] stats object:", stats);
-  
   // Only show loading state during initial dashboard data load or when accounts/categories are missing
   const isInitialLoading = profileLoading || dashboardLoading || !accounts || !categories || accounts.length === 0 || categories.length === 0;
-
-  console.log("[v0-debug] isInitialLoading:", isInitialLoading);
 
   if (isInitialLoading) {
     return <DashboardSkeleton />;
@@ -80,10 +72,7 @@ export default function Dashboard() {
   const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0;
 
   // Process categories data for charts - ensure categories are available
-  console.log("[v0-debug] useMemo deps - stats:", stats, "categories:", categories);
-  console.log("[v0-debug] stats type:", typeof stats, "is array?", Array.isArray(stats));
-  console.log("[v0-debug] categories type:", typeof categories, "is array?", Array.isArray(categories));
-  const incomeByCategories = useMemo(() => {
+  const processIncomeByCategories = () => {
     if (!stats || !stats.incomeByCategory || !categories || categories.length === 0) return [];
     return Object.entries(stats.incomeByCategory)
       .map(([categoryId, amount]) => ({
@@ -91,9 +80,9 @@ export default function Dashboard() {
         value: amount,
       }))
       .filter((item) => item.value > 0);
-  }, [stats, categories]);
+  };
 
-  const expensesByCategories = useMemo(() => {
+  const processExpensesByCategories = () => {
     if (!stats || !stats.expensesByCategory || !categories || categories.length === 0) return [];
     return Object.entries(stats.expensesByCategory)
       .map(([categoryId, amount]) => ({
@@ -101,10 +90,10 @@ export default function Dashboard() {
         value: amount,
       }))
       .filter((item) => item.value > 0);
-  }, [stats, categories]);
+  };
 
   // Process accounts data for charts - ensure accounts are available
-  const incomeByAccounts = useMemo(() => {
+  const processIncomeByAccounts = () => {
     if (!stats || !stats.incomeByAccount || !accounts || accounts.length === 0) return [];
     return Object.entries(stats.incomeByAccount)
       .map(([accountId, amount]) => ({
@@ -112,9 +101,9 @@ export default function Dashboard() {
         income: amount,
       }))
       .filter((item) => item.income > 0);
-  }, [stats, accounts]);
+  };
 
-  const expensesByAccounts = useMemo(() => {
+  const processExpensesByAccounts = () => {
     if (!stats || !stats.expensesByAccount || !accounts || accounts.length === 0) return [];
     return Object.entries(stats.expensesByAccount)
       .map(([accountId, amount]) => ({
@@ -122,10 +111,15 @@ export default function Dashboard() {
         expenses: amount,
       }))
       .filter((item) => item.expenses > 0);
-  }, [stats, accounts]);
+  };
 
   // Merge accounts data
-  const accountsChartData = useMemo(() => {
+  const incomeByCategories = processIncomeByCategories();
+  const expensesByCategories = processExpensesByCategories();
+  const incomeByAccounts = processIncomeByAccounts();
+  const expensesByAccounts = processExpensesByAccounts();
+
+  const accountsChartData = (() => {
     const merged: Record<string, { name: string; income: number; expenses: number }> = {};
     
     incomeByAccounts.forEach((item) => {
@@ -143,7 +137,7 @@ export default function Dashboard() {
     });
 
     return Object.values(merged);
-  }, [incomeByAccounts, expensesByAccounts]);
+  })();
 
   // Chart colors
   const COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];

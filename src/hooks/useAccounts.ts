@@ -80,7 +80,6 @@ export function useAccounts() {
   });
 
   const accountsData = query.data || [];
-  console.log("[v0-debug] useAccounts - query.isLoading:", query.isLoading, "accounts length:", accountsData.length, "accounts:", accountsData);
   
   return {
     accounts: accountsData,

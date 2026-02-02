@@ -107,17 +107,20 @@ export function useDashboardStats(
       preferredCurrency,
     ],
     queryFn: async () => {
-      const { start, end } = getDateRangeStatic(dateFilterType, customStartDate, customEndDate, customMonth, customYear);
-      const startStr = format(start, "yyyy-MM-dd");
-      const endStr = format(end, "yyyy-MM-dd");
+      try {
+        const { start, end } = getDateRangeStatic(dateFilterType, customStartDate, customEndDate, customMonth, customYear);
+        const startStr = format(start, "yyyy-MM-dd");
+        const endStr = format(end, "yyyy-MM-dd");
 
-      const { data: transactions, error } = await supabase
-        .from("transactions")
-        .select("*")
-        .gte("transaction_date", startStr)
-        .lte("transaction_date", endStr);
+        const { data: transactions, error } = await supabase
+          .from("transactions")
+          .select("*")
+          .gte("transaction_date", startStr)
+          .lte("transaction_date", endStr);
 
-      if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
       const txns = transactions as Transaction[];
 
@@ -195,12 +198,13 @@ export function useDashboardStats(
         expensesByAccount,
         chartData,
       } as DashboardStats;
+      } catch (error) {
+        throw error;
+      }
     },
     enabled: !!user?.id,
   });
 
-  console.log("[v0-debug] useDashboardStats - isLoading:", statsQuery.isLoading, "stats:", statsQuery.data, "error:", statsQuery.error);
-  
   return {
     stats: statsQuery.data,
     isLoading: statsQuery.isLoading,
