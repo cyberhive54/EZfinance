@@ -1,8 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Category } from "@/types/database";
+
+const EMPTY_CATEGORIES: Category[] = [];
 
 export function useCategories() {
   const { user } = useAuth();
@@ -20,7 +23,7 @@ export function useCategories() {
       if (error) throw error;
       return data as Category[];
     },
-    enabled: !!user,
+    enabled: !!user?.id,
   });
 
   const createMutation = useMutation({
@@ -76,7 +79,7 @@ export function useCategories() {
     },
   });
 
-  const categoriesData = query.data || [];
+  const categoriesData = useMemo(() => query.data || EMPTY_CATEGORIES, [query.data]);
   
   return {
     categories: categoriesData,
