@@ -128,18 +128,12 @@ export default function Accounts() {
         return;
       }
 
-      // Password verified, now update account balance and create transaction
+      // Password verified, create transaction for balance change (don't update balance directly)
       const { account, newBalance } = accountForBalanceChange;
       const oldBalance = Number(account.balance);
       const difference = newBalance - oldBalance;
 
-      // Update account balance
-      await updateAccount({
-        id: account.id,
-        balance: newBalance,
-      });
-
-      // Create transaction for the balance change
+      // Create transaction for the balance change - this will auto-update account balance
       if (difference !== 0) {
         const transactionType = difference > 0 ? "income" : "expense";
         await createTransaction({
@@ -147,15 +141,15 @@ export default function Accounts() {
           amount: Math.abs(difference),
           account_id: account.id,
           category_id: null,
-          description: `Balance Adjustment - ${reasonInput}`,
+          description: reasonInput,
           transaction_date: format(new Date(), "yyyy-MM-dd"),
           currency: account.currency,
           frequency: "none",
-          notes: `Manual balance change. Reason: ${reasonInput}. Old balance: ${oldBalance}, New balance: ${newBalance}`,
+          notes: `Balance adjustment: ${oldBalance} → ${newBalance}`,
         });
       }
 
-      toast({ title: "Success", description: "Account balance updated and transaction recorded" });
+      toast({ title: "Success", description: "Balance adjustment recorded as transaction" });
       setShowPasswordModal(false);
       setPasswordInput("");
       setReasonInput("");
@@ -191,7 +185,7 @@ export default function Accounts() {
         throw new Error("Insufficient balance in source account");
       }
 
-      // Create transfer transaction
+      // Create transfer transaction from source account
       await createTransaction({
         type: "transfer",
         amount: amount,
@@ -201,18 +195,20 @@ export default function Accounts() {
         transaction_date: format(new Date(), "yyyy-MM-dd"),
         currency: fromAccount.currency,
         frequency: "none",
-        notes: `Transfer from ${fromAccount.name} to ${toAccount.name}`,
+        notes: `Transfer to ${toAccount.name}`,
       });
 
-      // Update account balances
-      await updateAccount({
-        id: fromAccount.id,
-        balance: Number(fromAccount.balance) - amount,
-      });
-
-      await updateAccount({
-        id: toAccount.id,
-        balance: Number(toAccount.balance) + amount,
+      // Create reverse transfer transaction to destination account
+      await createTransaction({
+        type: "transfer",
+        amount: amount,
+        account_id: toAccount.id,
+        category_id: null,
+        description: `Transfer from ${fromAccount.name}`,
+        transaction_date: format(new Date(), "yyyy-MM-dd"),
+        currency: toAccount.currency,
+        frequency: "none",
+        notes: `Transfer from ${fromAccount.name}`,
       });
 
       toast({ title: "Success", description: `Transferred ${formatCurrency(amount, fromAccount.currency)} from ${fromAccount.name} to ${toAccount.name}` });
@@ -308,13 +304,15 @@ export default function Accounts() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="balance">Current Balance</Label>
+                <Label htmlFor="balance">Current Balance {editingAccount && <span className="text-muted-foreground text-xs">(Edit via "Edit Balance" option)</span>}</Label>
                 <Input
                   id="balance"
                   type="number"
                   step="0.01"
                   value={formData.balance}
                   onChange={(e) => setFormData({ ...formData, balance: parseFloat(e.target.value) || 0 })}
+                  disabled={!!editingAccount}
+                  className="disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
               <Button type="submit" className="w-full" disabled={isCreating || isUpdating}>

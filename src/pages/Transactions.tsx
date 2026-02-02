@@ -136,6 +136,9 @@ export default function Transactions() {
   const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense" | "transfer">("all");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [categoryTab, setCategoryTab] = useState<"all" | "income" | "expense">("all");
+  const [accountFilter, setAccountFilter] = useState<string>("all");
+  const [accountSearchInput, setAccountSearchInput] = useState("");
   const [amountMin, setAmountMin] = useState<number | null>(null);
   const [amountMax, setAmountMax] = useState<number | null>(null);
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>("all");
@@ -242,6 +245,11 @@ export default function Transactions() {
       result = result.filter((t) => t.category_id === categoryFilter);
     }
 
+    // Account filter
+    if (accountFilter !== "all") {
+      result = result.filter((t) => t.account_id === accountFilter);
+    }
+
     // Amount range filter
     if (amountMin !== null) {
       result = result.filter((t) => t.amount >= amountMin);
@@ -308,7 +316,7 @@ export default function Transactions() {
     });
 
     return result;
-  }, [transactions, typeFilter, paymentMethodFilter, categoryFilter, frequencyFilter, amountMin, amountMax, dateFilterType, customStartDate, customEndDate, customMonth, customYear, searchQuery, sortField, sortOrder, categories]);
+  }, [transactions, typeFilter, paymentMethodFilter, categoryFilter, accountFilter, frequencyFilter, amountMin, amountMax, dateFilterType, customStartDate, customEndDate, customMonth, customYear, searchQuery, sortField, sortOrder, categories]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
@@ -657,18 +665,19 @@ export default function Transactions() {
 
               {/* Title - Top */}
               <div className="space-y-2">
-                <Label>Title</Label>
+                <Label>Title <span className="text-destructive">*</span></Label>
                 <Input 
                   placeholder="e.g., Grocery shopping"
                   value={formData.description} 
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })} 
+                  required
                 />
               </div>
 
               {/* Amount & Transaction Date - Half Width */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Amount</Label>
+                  <Label>Amount <span className="text-destructive">*</span></Label>
                   <CurrencyInput 
                     currencySymbol={currencySymbol}
                     step="0.01" 
@@ -678,7 +687,7 @@ export default function Transactions() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Transaction Date</Label>
+                  <Label>Transaction Date <span className="text-destructive">*</span></Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -708,9 +717,9 @@ export default function Transactions() {
               {/* Account & Category - Half Width */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Account</Label>
+                  <Label>Account <span className="text-destructive">*</span></Label>
                   <Select value={formData.account_id} onValueChange={(v) => setFormData({ ...formData, account_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+                    <SelectTrigger className={!formData.account_id ? "border-destructive" : ""}><SelectValue placeholder="Select account" /></SelectTrigger>
                     <SelectContent>
                       {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                     </SelectContent>
@@ -975,23 +984,49 @@ export default function Transactions() {
             </SelectContent>
           </Select>
 
-          {/* Payment Method Filter */}
-          <Select value={paymentMethodFilter} onValueChange={(v) => {
-            setPaymentMethodFilter(v);
-            setCurrentPage(1);
-          }}>
-            <SelectTrigger className="w-full lg:w-auto min-w-[130px]">
-              <SelectValue placeholder="Payment" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Methods</SelectItem>
-              {accounts.map((acc) => (
-                <SelectItem key={acc.id} value={acc.id}>
-                  {acc.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Account Filter with Search */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full lg:w-auto min-w-[130px]">
+                Account {(accountFilter !== "all") && "✓"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56 p-4" align="end">
+              <div className="space-y-3">
+                <Input
+                  placeholder="Search accounts..."
+                  value={accountSearchInput}
+                  onChange={(e) => setAccountSearchInput(e.target.value.toLowerCase())}
+                  className="h-8"
+                />
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  <button
+                    onClick={() => {
+                      setAccountFilter("all");
+                      setCurrentPage(1);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm ${accountFilter === "all" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                  >
+                    All Accounts
+                  </button>
+                  {accounts
+                    .filter((acc) => acc.name.toLowerCase().includes(accountSearchInput))
+                    .map((acc) => (
+                      <button
+                        key={acc.id}
+                        onClick={() => {
+                          setAccountFilter(acc.id);
+                          setCurrentPage(1);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded text-sm ${accountFilter === acc.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                      >
+                        {acc.name}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Category Filter with Tabs */}
           <DropdownMenu>
@@ -1008,16 +1043,12 @@ export default function Transactions() {
                   onChange={(e) => setSearchCategoryInput(e.target.value.toLowerCase())}
                   className="h-8"
                 />
-                <Tabs defaultValue="all" onValueChange={(v) => {
-                  if (v === "all") {
-                    setCategoryFilter("all");
-                  }
+                <Tabs value={categoryTab} onValueChange={(v: any) => {
+                  setCategoryTab(v);
+                  setCategoryFilter("all");
                 }}>
                   <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="all" onClick={() => {
-                      setCategoryFilter("all");
-                      setCurrentPage(1);
-                    }}>All</TabsTrigger>
+                    <TabsTrigger value="all">All</TabsTrigger>
                     <TabsTrigger value="income">Income</TabsTrigger>
                     <TabsTrigger value="expense">Expense</TabsTrigger>
                   </TabsList>
@@ -1032,7 +1063,7 @@ export default function Transactions() {
                   >
                     All Categories
                   </button>
-                  {incomeCategories
+                  {(categoryTab === "all" || categoryTab === "income") && incomeCategories
                     .filter((cat) => cat.name.toLowerCase().includes(searchCategoryInput))
                     .map((cat) => (
                       <button
@@ -1046,7 +1077,7 @@ export default function Transactions() {
                         {cat.name}
                       </button>
                     ))}
-                  {expenseCategories
+                  {(categoryTab === "all" || categoryTab === "expense") && expenseCategories
                     .filter((cat) => cat.name.toLowerCase().includes(searchCategoryInput))
                     .map((cat) => (
                       <button
