@@ -153,13 +153,14 @@ export function BulkImportStep3Mapping({
                   </td>
                   <td className="p-3">
                     <Select
-                      value={mapping[idx] || ""}
+                      value={mapping[idx] || "skip"}
                       onValueChange={(value) => handleMappingChange(idx, value)}
                     >
                       <SelectTrigger className="w-full md:w-[200px]">
                         <SelectValue placeholder="Select field..." />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="skip">Skip Column</SelectItem>
                         {FIELD_OPTIONS.map((option) => (
                           <SelectItem key={option.value} value={option.value}>
                             {option.label}

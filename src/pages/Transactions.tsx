@@ -24,7 +24,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { uploadTransactionAttachment } from "@/utils/cloudinary";
 import { supabase } from "@/integrations/supabase/client";
 import { useTransactionAttachments } from "@/hooks/useTransactionAttachments";
-import { BulkImportModal } from "@/components/bulkImport/BulkImportModal";
+import { useNavigate } from "react-router-dom";
 import { FileImage, Upload } from "lucide-react";
 
 type SortField = "date_created" | "amount" | "transaction_date";
@@ -64,6 +64,7 @@ function AttachmentCell({ transactionId }: { transactionId: string }) {
 }
 
 export default function Transactions() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { transactions, categories, isLoading, createTransaction, updateTransaction, deleteTransaction, isCreating, isUpdating } = useTransactions();
   const { accounts } = useAccounts();
@@ -98,7 +99,6 @@ export default function Transactions() {
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const { attachments: existingAttachments } = useTransactionAttachments(editingTransactionId || undefined);
-  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     type: "expense" as "income" | "expense",
@@ -581,7 +581,7 @@ export default function Transactions() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setIsBulkImportOpen(true)}
+            onClick={() => navigate("/bulk-import")}
             title="Bulk Import Transactions"
             className="md:hidden"
           >
@@ -589,7 +589,7 @@ export default function Transactions() {
           </Button>
           <Button
             variant="outline"
-            onClick={() => setIsBulkImportOpen(true)}
+            onClick={() => navigate("/bulk-import")}
             className="hidden md:flex"
           >
             <Upload className="mr-2 h-4 w-4" />
@@ -1543,9 +1543,6 @@ export default function Transactions() {
           </div>
         )}
       </div>
-
-      {/* Bulk Import Modal */}
-      <BulkImportModal isOpen={isBulkImportOpen} onClose={() => setIsBulkImportOpen(false)} />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>

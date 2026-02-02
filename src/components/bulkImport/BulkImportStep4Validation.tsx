@@ -214,11 +214,11 @@ export function BulkImportStep4Validation({
                           <div>
                             <label className="text-xs font-medium">Type *</label>
                             <Select
-                              value={row.type}
+                              value={row.type || "expense"}
                               onValueChange={(v) => handleFieldChange(idx, "type", v)}
                             >
                               <SelectTrigger>
-                                <SelectValue />
+                                <SelectValue placeholder="Select type..." />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="income">INCOME</SelectItem>
@@ -263,11 +263,11 @@ export function BulkImportStep4Validation({
                               <div>
                                 <label className="text-xs font-medium">Account *</label>
                                 <Select
-                                  value={row.account}
+                                  value={row.account || ""}
                                   onValueChange={(v) => handleFieldChange(idx, "account", v)}
                                 >
                                   <SelectTrigger>
-                                    <SelectValue />
+                                    <SelectValue placeholder="Select account..." />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {accounts.map((acc) => (
@@ -282,11 +282,11 @@ export function BulkImportStep4Validation({
                               <div>
                                 <label className="text-xs font-medium">Category *</label>
                                 <Select
-                                  value={row.category}
+                                  value={row.category || ""}
                                   onValueChange={(v) => handleFieldChange(idx, "category", v)}
                                 >
                                   <SelectTrigger>
-                                    <SelectValue />
+                                    <SelectValue placeholder="Select category..." />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {(row.type.toLowerCase() === "income"
@@ -308,11 +308,11 @@ export function BulkImportStep4Validation({
                               <div>
                                 <label className="text-xs font-medium">From Account</label>
                                 <Select
-                                  value={row.fromAccount}
+                                  value={row.fromAccount || ""}
                                   onValueChange={(v) => handleFieldChange(idx, "fromAccount", v)}
                                 >
                                   <SelectTrigger>
-                                    <SelectValue />
+                                    <SelectValue placeholder="Select from account..." />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {accounts.map((acc) => (
@@ -327,11 +327,11 @@ export function BulkImportStep4Validation({
                               <div>
                                 <label className="text-xs font-medium">To Account</label>
                                 <Select
-                                  value={row.toAccount}
+                                  value={row.toAccount || ""}
                                   onValueChange={(v) => handleFieldChange(idx, "toAccount", v)}
                                 >
                                   <SelectTrigger>
-                                    <SelectValue />
+                                    <SelectValue placeholder="Select to account..." />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {accounts.map((acc) => (

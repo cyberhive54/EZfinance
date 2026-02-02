@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Accounts from "./pages/Accounts";
 import Transactions from "./pages/Transactions";
+import BulkImport from "./pages/BulkImport";
 import Budget from "./pages/Budget";
 import Analytics from "./pages/Analytics";
 import Categories from "./pages/Categories";
@@ -34,6 +35,7 @@ const App = () => (
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/accounts" element={<Accounts />} />
                 <Route path="/transactions" element={<Transactions />} />
+                <Route path="/bulk-import" element={<BulkImport />} />
                 <Route path="/budget" element={<Budget />} />
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/categories" element={<Categories />} />
