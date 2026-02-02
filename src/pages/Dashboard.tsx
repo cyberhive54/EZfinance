@@ -35,7 +35,7 @@ type TransactionLayout = "grid" | "list";
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { preferredCurrency } = useProfile();
+  const { preferredCurrency, isLoading: profileLoading } = useProfile();
   const { accounts: allAccounts, transactions: recentTransactions, totalBalance, monthlyIncome: initialIncome, monthlyExpenses: initialExpenses, isLoading: dashboardLoading } = useDashboardData(preferredCurrency);
   const { accounts } = useAccounts();
   const { categories } = useCategories();
@@ -60,7 +60,7 @@ export default function Dashboard() {
   );
 
   // Only show loading state during initial dashboard data load or when accounts/categories are missing
-  const isInitialLoading = dashboardLoading || !accounts || !categories || accounts.length === 0 || categories.length === 0;
+  const isInitialLoading = profileLoading || dashboardLoading || !accounts || !categories || accounts.length === 0 || categories.length === 0;
 
   if (isInitialLoading) {
     return <DashboardSkeleton />;

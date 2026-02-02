@@ -4,29 +4,31 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Profile, CURRENCIES } from "@/types/database";
 
 export function useProfile() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: ["profile", user?.id],
     queryFn: async () => {
+      if (!user?.id) throw new Error("User not authenticated");
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("user_id", user!.id)
+        .eq("user_id", user.id)
         .single();
       if (error) throw error;
       return data as Profile;
     },
-    enabled: !!user,
+    enabled: !!user?.id && !authLoading,
   });
 
   const updateMutation = useMutation({
     mutationFn: async (updates: Partial<Profile>) => {
+      if (!user?.id) throw new Error("User not authenticated");
       const { data, error } = await supabase
         .from("profiles")
         .update(updates)
-        .eq("user_id", user!.id)
+        .eq("user_id", user.id)
         .select()
         .single();
       if (error) throw error;
@@ -44,7 +46,7 @@ export function useProfile() {
     profile: query.data,
     preferredCurrency,
     currencyInfo,
-    isLoading: query.isLoading,
+    isLoading: query.isLoading || authLoading,
     updateProfile: updateMutation.mutateAsync,
   };
 }
