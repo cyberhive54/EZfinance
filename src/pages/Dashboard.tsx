@@ -73,45 +73,45 @@ export default function Dashboard() {
 
   // Process categories data for charts - ensure categories are available
   const incomeByCategories = useMemo(() => {
-    if (!stats?.incomeByCategory || !categories || categories.length === 0) return [];
+    if (!stats || !stats.incomeByCategory || !categories || categories.length === 0) return [];
     return Object.entries(stats.incomeByCategory)
       .map(([categoryId, amount]) => ({
         name: categories.find((c) => c.id === categoryId)?.name || categoryId,
         value: amount,
       }))
       .filter((item) => item.value > 0);
-  }, [stats?.incomeByCategory, categories]);
+  }, [stats, categories]);
 
   const expensesByCategories = useMemo(() => {
-    if (!stats?.expensesByCategory || !categories || categories.length === 0) return [];
+    if (!stats || !stats.expensesByCategory || !categories || categories.length === 0) return [];
     return Object.entries(stats.expensesByCategory)
       .map(([categoryId, amount]) => ({
         name: categories.find((c) => c.id === categoryId)?.name || categoryId,
         value: amount,
       }))
       .filter((item) => item.value > 0);
-  }, [stats?.expensesByCategory, categories]);
+  }, [stats, categories]);
 
   // Process accounts data for charts - ensure accounts are available
   const incomeByAccounts = useMemo(() => {
-    if (!stats?.incomeByAccount || !accounts || accounts.length === 0) return [];
+    if (!stats || !stats.incomeByAccount || !accounts || accounts.length === 0) return [];
     return Object.entries(stats.incomeByAccount)
       .map(([accountId, amount]) => ({
         name: accounts.find((a) => a.id === accountId)?.name || accountId,
         income: amount,
       }))
       .filter((item) => item.income > 0);
-  }, [stats?.incomeByAccount, accounts]);
+  }, [stats, accounts]);
 
   const expensesByAccounts = useMemo(() => {
-    if (!stats?.expensesByAccount || !accounts || accounts.length === 0) return [];
+    if (!stats || !stats.expensesByAccount || !accounts || accounts.length === 0) return [];
     return Object.entries(stats.expensesByAccount)
       .map(([accountId, amount]) => ({
         name: accounts.find((a) => a.id === accountId)?.name || accountId,
         expenses: amount,
       }))
       .filter((item) => item.expenses > 0);
-  }, [stats?.expensesByAccount, accounts]);
+  }, [stats, accounts]);
 
   // Merge accounts data
   const accountsChartData = useMemo(() => {

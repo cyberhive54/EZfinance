@@ -26,6 +26,65 @@ interface DashboardStats {
   }>;
 }
 
+function getDateRangeStatic(
+  dateFilterType: DateFilterType,
+  customStartDate: string,
+  customEndDate: string,
+  customMonth: string,
+  customYear: string
+): DateRange {
+  const now = new Date();
+  let start: Date = new Date();
+  let end: Date = new Date();
+
+  switch (dateFilterType) {
+    case "this-week":
+      start = startOfWeek(now);
+      end = endOfWeek(now);
+      break;
+    case "last-7-days":
+      start = subDays(now, 7);
+      end = now;
+      break;
+    case "this-month":
+      start = startOfMonth(now);
+      end = endOfMonth(now);
+      break;
+    case "last-30-days":
+      start = subDays(now, 30);
+      end = now;
+      break;
+    case "this-year":
+      start = startOfYear(now);
+      end = endOfYear(now);
+      break;
+    case "last-365-days":
+      start = subDays(now, 365);
+      end = now;
+      break;
+    case "custom-date":
+      if (customStartDate) start = new Date(customStartDate);
+      if (customEndDate) end = new Date(customEndDate);
+      break;
+    case "custom-month":
+      if (customMonth) {
+        const [year, month] = customMonth.split("-");
+        start = startOfMonth(new Date(parseInt(year), parseInt(month) - 1));
+        end = endOfMonth(new Date(parseInt(year), parseInt(month) - 1));
+      }
+      break;
+    case "custom-year":
+      if (customYear) {
+        const year = parseInt(customYear);
+        start = startOfYear(new Date(year, 0, 1));
+        end = endOfYear(new Date(year, 11, 31));
+      }
+      break;
+  }
+
+  return { start, end };
+}
+
 export function useDashboardStats(
   preferredCurrency: string = "USD",
   dateFilterType: DateFilterType = "this-month",
@@ -35,59 +94,6 @@ export function useDashboardStats(
   customYear: string = new Date().getFullYear().toString()
 ) {
   const { user } = useAuth();
-
-  const getDateRange = (): DateRange => {
-    const now = new Date();
-    let start: Date = new Date();
-    let end: Date = new Date();
-
-    switch (dateFilterType) {
-      case "this-week":
-        start = startOfWeek(now);
-        end = endOfWeek(now);
-        break;
-      case "last-7-days":
-        start = subDays(now, 7);
-        end = now;
-        break;
-      case "this-month":
-        start = startOfMonth(now);
-        end = endOfMonth(now);
-        break;
-      case "last-30-days":
-        start = subDays(now, 30);
-        end = now;
-        break;
-      case "this-year":
-        start = startOfYear(now);
-        end = endOfYear(now);
-        break;
-      case "last-365-days":
-        start = subDays(now, 365);
-        end = now;
-        break;
-      case "custom-date":
-        if (customStartDate) start = new Date(customStartDate);
-        if (customEndDate) end = new Date(customEndDate);
-        break;
-      case "custom-month":
-        if (customMonth) {
-          const [year, month] = customMonth.split("-");
-          start = startOfMonth(new Date(parseInt(year), parseInt(month) - 1));
-          end = endOfMonth(new Date(parseInt(year), parseInt(month) - 1));
-        }
-        break;
-      case "custom-year":
-        if (customYear) {
-          const year = parseInt(customYear);
-          start = startOfYear(new Date(year, 0, 1));
-          end = endOfYear(new Date(year, 11, 31));
-        }
-        break;
-    }
-
-    return { start, end };
-  };
 
   const statsQuery = useQuery({
     queryKey: [
@@ -101,7 +107,7 @@ export function useDashboardStats(
       preferredCurrency,
     ],
     queryFn: async () => {
-      const { start, end } = getDateRange();
+      const { start, end } = getDateRangeStatic(dateFilterType, customStartDate, customEndDate, customMonth, customYear);
       const startStr = format(start, "yyyy-MM-dd");
       const endStr = format(end, "yyyy-MM-dd");
 
@@ -190,7 +196,7 @@ export function useDashboardStats(
         chartData,
       } as DashboardStats;
     },
-    enabled: !!user,
+    enabled: !!user?.id,
   });
 
   return {
