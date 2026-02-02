@@ -133,7 +133,7 @@ export default function Transactions() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchCategoryInput, setSearchCategoryInput] = useState("");
   const [searchMonthInput, setSearchMonthInput] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense" | "transfer">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense" | "transfer-sender" | "transfer-receiver" | "transfer">("all");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [categoryTab, setCategoryTab] = useState<"all" | "income" | "expense">("all");
@@ -232,7 +232,11 @@ export default function Transactions() {
 
     // Type filter
     if (typeFilter !== "all") {
-      result = result.filter((t) => t.type === typeFilter);
+      if (typeFilter === "transfer") {
+        result = result.filter((t) => t.type === "transfer-sender" || t.type === "transfer-receiver");
+      } else {
+        result = result.filter((t) => t.type === typeFilter);
+      }
     }
 
     // Payment method filter (account-based)
@@ -1449,13 +1453,14 @@ export default function Transactions() {
                       {getSortIcon("transaction_date")}
                     </div>
                   </th>
-                  <th className="px-4 py-3 text-left hidden xl:table-cell font-semibold text-foreground">Payment Method</th>
-                  <th className="px-4 py-3 text-left hidden md:table-cell font-semibold text-foreground">Frequency</th>
+                  <th className="px-4 py-3 text-left hidden lg:table-cell font-semibold text-foreground">Account</th>
                   <th className="px-4 py-3 text-left hidden lg:table-cell font-semibold text-foreground">Notes</th>
-                  <th className="px-4 py-3 text-center hidden md:table-cell font-semibold text-foreground">Attachments</th>
-                  <th className="px-4 py-3 text-left cursor-pointer hover:bg-muted/70" onClick={() => toggleSort("date_created")}>
+                  <th className="px-4 py-3 text-center hidden md:table-cell font-semibold text-foreground w-10" title="Attachments">
+                    <FileImage className="h-4 w-4" />
+                  </th>
+                  <th className="px-4 py-3 text-left cursor-pointer hover:bg-muted/70 hidden xl:table-cell" onClick={() => toggleSort("date_created")}>
                     <div className="flex items-center gap-2 font-semibold text-foreground">
-                      Date Created
+                      Created
                       {getSortIcon("date_created")}
                     </div>
                   </th>
@@ -1485,13 +1490,17 @@ export default function Transactions() {
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`px-2.5 py-0.5 text-xs font-semibold rounded ${
+                        className={`px-2.5 py-0.5 text-xs font-semibold rounded whitespace-nowrap ${
                           transaction.type === "income"
                             ? "bg-accent/20 text-accent"
-                            : "bg-destructive/20 text-destructive"
+                            : transaction.type === "expense"
+                              ? "bg-destructive/20 text-destructive"
+                              : transaction.type === "transfer-sender"
+                                ? "bg-blue-500/20 text-blue-500"
+                                : "bg-green-500/20 text-green-500"
                         }`}
                       >
-                        {transaction.type === "income" ? "INCOME" : "EXPENSE"}
+                        {transaction.type === "income" ? "INCOME" : transaction.type === "expense" ? "EXPENSE" : transaction.type === "transfer-sender" ? "OUT" : "IN"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold">
@@ -1505,20 +1514,23 @@ export default function Transactions() {
                     <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
                       {format(new Date(transaction.transaction_date), "MMM dd, yyyy")}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground hidden xl:table-cell">
+                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell text-sm">
                       {accounts.find((a) => a.id === transaction.account_id)?.name || "—"}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell text-sm">
-                      <span className="capitalize">{transaction.frequency || "none"}</span>
+                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell text-sm max-w-xs">
+                      {transaction.notes ? (
+                        <div title={transaction.notes} className="truncate cursor-help hover:text-foreground transition-colors">
+                          {transaction.notes}
+                        </div>
+                      ) : (
+                        "—"
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell text-sm max-w-[200px] truncate">
-                      {transaction.notes || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-center hidden md:table-cell text-sm">
+                    <td className="px-4 py-3 text-center hidden md:table-cell text-sm w-10">
                       <AttachmentCell transactionId={transaction.id} />
                     </td>
-                    <td className="px-4 py-3 text-foreground text-sm">
-                      {format(new Date(transaction.created_at || new Date()), "MMM dd, yyyy")}
+                    <td className="px-4 py-3 text-foreground text-sm hidden xl:table-cell">
+                      {format(new Date(transaction.created_at || new Date()), "MMM dd")}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <DropdownMenu>

@@ -42,6 +42,7 @@ interface AccountFormData {
 
 export default function Accounts() {
   const { accounts, isLoading, createAccount, updateAccount, deleteAccount, isCreating, isUpdating, isDeleting } = useAccounts();
+  const { preferredCurrency } = useProfile();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [formData, setFormData] = useState<AccountFormData>({
@@ -185,9 +186,9 @@ export default function Accounts() {
         throw new Error("Insufficient balance in source account");
       }
 
-      // Create transfer transaction from source account
+      // Create transfer-sender transaction from source account
       await createTransaction({
-        type: "transfer",
+        type: "transfer-sender",
         amount: amount,
         account_id: fromAccount.id,
         category_id: null,
@@ -198,9 +199,9 @@ export default function Accounts() {
         notes: `Transfer to ${toAccount.name}`,
       });
 
-      // Create reverse transfer transaction to destination account
+      // Create transfer-receiver transaction to destination account
       await createTransaction({
-        type: "transfer",
+        type: "transfer-receiver",
         amount: amount,
         account_id: toAccount.id,
         category_id: null,
@@ -234,7 +235,7 @@ export default function Accounts() {
         <div>
           <h1 className="text-2xl font-bold text-foreground md:text-3xl">Accounts</h1>
           <p className="text-sm text-muted-foreground">
-            Total: {formatCurrency(totalBalance)}
+            Total: {formatCurrency(totalBalance, preferredCurrency)}
           </p>
         </div>
         <div className="flex gap-2">
