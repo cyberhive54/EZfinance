@@ -24,7 +24,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { uploadTransactionAttachment } from "@/utils/cloudinary";
 import { supabase } from "@/integrations/supabase/client";
 import { useTransactionAttachments } from "@/hooks/useTransactionAttachments";
-import { FileImage } from "lucide-react";
+import { BulkImportModal } from "@/components/bulkImport/BulkImportModal";
+import { FileImage, Upload } from "lucide-react";
 
 type SortField = "date_created" | "amount" | "transaction_date";
 type SortOrder = "asc" | "desc";
@@ -97,6 +98,7 @@ export default function Transactions() {
   const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const { attachments: existingAttachments } = useTransactionAttachments(editingTransactionId || undefined);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     type: "expense" as "income" | "expense",
@@ -575,16 +577,34 @@ export default function Transactions() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">Transactions</h1>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { 
-          setIsDialogOpen(open); 
-          if (!open) resetEditState(); 
-        }}>
-          <DialogTrigger asChild>
-            <Button size="icon" className="md:hidden"><Plus className="h-5 w-5" /></Button>
-          </DialogTrigger>
-          <DialogTrigger asChild>
-            <Button className="hidden md:flex"><Plus className="mr-2 h-4 w-4" />{editingTransaction ? "Edit" : "Add"} Transaction</Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsBulkImportOpen(true)}
+            title="Bulk Import Transactions"
+            className="md:hidden"
+          >
+            <Upload className="h-5 w-5" />
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setIsBulkImportOpen(true)}
+            className="hidden md:flex"
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            Bulk Import
+          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { 
+            setIsDialogOpen(open); 
+            if (!open) resetEditState(); 
+          }}>
+            <DialogTrigger asChild>
+              <Button size="icon" className="md:hidden"><Plus className="h-5 w-5" /></Button>
+            </DialogTrigger>
+            <DialogTrigger asChild>
+              <Button className="hidden md:flex"><Plus className="mr-2 h-4 w-4" />{editingTransaction ? "Edit" : "Add"} Transaction</Button>
+            </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
             <DialogHeader>
               <DialogTitle>{editingTransaction ? "Edit" : "Add"} Transaction</DialogTitle>
@@ -885,7 +905,8 @@ export default function Transactions() {
               </Button>
             </form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       {/* Search and Filters - One Line on PC */}
@@ -1522,6 +1543,9 @@ export default function Transactions() {
           </div>
         )}
       </div>
+
+      {/* Bulk Import Modal */}
+      <BulkImportModal isOpen={isBulkImportOpen} onClose={() => setIsBulkImportOpen(false)} />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
