@@ -42,7 +42,7 @@ export interface Transaction {
   user_id: string;
   account_id: string;
   category_id: string | null;
-  type: "income" | "expense";
+  type: "income" | "expense" | "transfer";
   amount: number;
   currency: string;
   description: string | null;

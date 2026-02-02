@@ -133,7 +133,7 @@ export default function Transactions() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchCategoryInput, setSearchCategoryInput] = useState("");
   const [searchMonthInput, setSearchMonthInput] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense" | "transfer">("all");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [amountMin, setAmountMin] = useState<number | null>(null);
@@ -486,7 +486,7 @@ export default function Transactions() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.account_id || !formData.amount || hasValidationError) return;
+    if (!formData.account_id || !formData.amount || !formData.category_id || hasValidationError) return;
     
     console.log("[v0] FORM SUBMIT: Starting transaction form submission", {
       hasAttachments: uploadingAttachments.length > 0,
@@ -717,9 +717,9 @@ export default function Transactions() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Category</Label>
+                  <Label>Category <span className="text-destructive">*</span></Label>
                   <Select value={formData.category_id} onValueChange={(v) => setFormData({ ...formData, category_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectTrigger className={!formData.category_id ? "border-destructive" : ""}><SelectValue placeholder="Select category" /></SelectTrigger>
                     <SelectContent>
                       {(formData.type === "income" ? incomeCategories : expenseCategories).map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -971,6 +971,7 @@ export default function Transactions() {
               <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="income">Income</SelectItem>
               <SelectItem value="expense">Expense</SelectItem>
+              <SelectItem value="transfer">Transfer</SelectItem>
             </SelectContent>
           </Select>
 

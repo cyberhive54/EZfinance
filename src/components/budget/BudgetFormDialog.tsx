@@ -53,6 +53,7 @@ export function BudgetFormDialog({
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
   const [isRecurring, setIsRecurring] = useState(false);
+  const [manualRollover, setManualRollover] = useState(false);
 
   // Reset form when dialog opens/closes or budget changes
   useEffect(() => {
@@ -65,6 +66,7 @@ export function BudgetFormDialog({
         setStartDate(budget.start_date ? parseISO(budget.start_date) : undefined);
         setEndDate(budget.end_date ? parseISO(budget.end_date) : undefined);
         setIsRecurring(budget.is_recurring);
+        setManualRollover(budget.manual_rollover || false);
       } else {
         setBudgetType("category");
         setCategoryId("");
@@ -74,6 +76,7 @@ export function BudgetFormDialog({
         setStartDate(dates.start);
         setEndDate(dates.end);
         setIsRecurring(false);
+        setManualRollover(false);
       }
     }
   }, [open, budget]);
@@ -105,6 +108,7 @@ export function BudgetFormDialog({
         start_date: startDate ? format(startDate, "yyyy-MM-dd") : undefined,
         end_date: endDate ? format(endDate, "yyyy-MM-dd") : undefined,
         is_recurring: canRecur ? isRecurring : false,
+        manual_rollover: canRecur && isRecurring ? manualRollover : false,
       });
     } else {
       await onSubmit({
@@ -115,6 +119,7 @@ export function BudgetFormDialog({
         end_date: endDate ? format(endDate, "yyyy-MM-dd") : undefined,
         is_recurring: canRecur ? isRecurring : false,
         is_overall: budgetType === "overall",
+        manual_rollover: canRecur && isRecurring ? manualRollover : false,
       });
     }
     onOpenChange(false);
@@ -261,6 +266,22 @@ export function BudgetFormDialog({
               <Switch
                 checked={isRecurring}
                 onCheckedChange={setIsRecurring}
+              />
+            </div>
+          )}
+
+          {/* Manual Rollover Toggle - only for recurring budgets */}
+          {canRecur && isRecurring && (
+            <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/50">
+              <div className="space-y-0.5 flex-1 min-w-0">
+                <Label className="text-sm font-medium">Manual Rollover</Label>
+                <p className="text-xs text-muted-foreground">
+                  Manually carry unused budget to next {period === "weekly" ? "week" : "month"}
+                </p>
+              </div>
+              <Switch
+                checked={manualRollover}
+                onCheckedChange={setManualRollover}
               />
             </div>
           )}
