@@ -7,14 +7,40 @@ const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
 // Allowed file types and max file size
-const ALLOWED_FORMATS = ["image/jpeg", "image/png", "image/webp"];
-const MAX_FILE_SIZE = 6 * 1024 * 1024; // 6MB
+export const ALLOWED_IMAGE_FORMATS = ["image/jpeg", "image/png", "image/webp"];
+export const ALLOWED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
+export const MAX_FILE_SIZE = 6 * 1024 * 1024; // 6MB
 
 export interface CloudinaryUploadResponse {
   public_id: string;
   secure_url: string;
   original_filename: string;
   bytes: number;
+}
+
+/**
+ * Validates a file for upload
+ * @param file - File to validate
+ * @returns Object with isValid boolean and error message if invalid
+ */
+export function validateImageFile(file: File): { isValid: boolean; error?: string } {
+  // Validate file type
+  if (!ALLOWED_IMAGE_FORMATS.includes(file.type)) {
+    return {
+      isValid: false,
+      error: `Invalid file type. Only JPG, JPEG, PNG, and WebP images are allowed. Received: ${file.type}`,
+    };
+  }
+
+  // Validate file size
+  if (file.size > MAX_FILE_SIZE) {
+    return {
+      isValid: false,
+      error: `File size exceeds 6MB limit. File size: ${(file.size / 1024 / 1024).toFixed(2)}MB`,
+    };
+  }
+
+  return { isValid: true };
 }
 
 export async function uploadTransactionAttachment(
@@ -28,20 +54,13 @@ export async function uploadTransactionAttachment(
   });
 
   // Validate file
-  if (!ALLOWED_FORMATS.includes(file.type)) {
-    console.error("[v0] ATTACHMENT ERROR: Invalid file type", {
-      receivedType: file.type,
-      allowedTypes: ALLOWED_FORMATS,
+  const validation = validateImageFile(file);
+  if (!validation.isValid) {
+    console.error("[v0] ATTACHMENT ERROR: File validation failed", {
+      fileName: file.name,
+      error: validation.error,
     });
-    throw new Error("Invalid file type. Only JPEG, PNG, and WebP images are allowed.");
-  }
-
-  if (file.size > MAX_FILE_SIZE) {
-    console.error("[v0] ATTACHMENT ERROR: File size exceeds limit", {
-      fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
-      maxSize: `${(MAX_FILE_SIZE / 1024 / 1024).toFixed(2)}MB`,
-    });
-    throw new Error("File size exceeds 6MB limit.");
+    throw new Error(validation.error);
   }
 
   console.log("[v0] ATTACHMENT: Environment variables check", {

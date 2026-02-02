@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
+import { ProfilePhotoUpload } from "@/components/profile/ProfilePhotoUpload";
 import { User } from "lucide-react";
 
 export function ProfileSection() {
@@ -50,15 +51,10 @@ export function ProfileSection() {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Profile Photo */}
-        <div className="flex items-center gap-4">
-          <Avatar className="h-16 w-16 md:h-20 md:w-20 bg-primary">
-            <AvatarFallback className="bg-primary text-primary-foreground text-lg md:text-xl">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+        <div className="space-y-4">
           <div>
-            <p className="font-medium text-foreground">Change Photo</p>
-            <p className="text-sm text-muted-foreground">JPG, GIF or PNG. 1MB max.</p>
+            <p className="font-medium text-foreground mb-4">Profile Photo</p>
+            <ProfilePhotoUpload className="justify-center" />
           </div>
         </div>
 
