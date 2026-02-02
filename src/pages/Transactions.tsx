@@ -630,6 +630,7 @@ export default function Transactions() {
     setGoalAmount("");
   };
 
+  // Check loading AFTER all hooks are declared
   if (isLoading) return <TransactionsSkeleton />;
 
   const incomeCategories = categories.filter((c) => c.type === "income");

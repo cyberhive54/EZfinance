@@ -34,13 +34,10 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 type TransactionLayout = "grid" | "list";
 
 export default function Dashboard() {
+  // ALL HOOKS MUST BE AT TOP - BEFORE ANY CONDITIONAL LOGIC
   const { user } = useAuth();
-  const { preferredCurrency, isLoading: profileLoading } = useProfile();
-  const { accounts: allAccounts, transactions: recentTransactions, totalBalance, monthlyIncome: initialIncome, monthlyExpenses: initialExpenses, isLoading: dashboardLoading } = useDashboardData(preferredCurrency);
-  const { accounts } = useAccounts();
-  const { categories } = useCategories();
   
-  // Date filter state
+  // State declarations FIRST
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>("this-month");
   const [customStartDate, setCustomStartDate] = useState<string>("");
   const [customEndDate, setCustomEndDate] = useState<string>("");
@@ -48,6 +45,12 @@ export default function Dashboard() {
   const [customYear, setCustomYear] = useState<string>(new Date().getFullYear().toString());
   const [searchMonthInput, setSearchMonthInput] = useState("");
   const [transactionLayout, setTransactionLayout] = useState<TransactionLayout>("grid");
+
+  // Then query hooks
+  const { preferredCurrency, isLoading: profileLoading } = useProfile();
+  const { accounts: allAccounts, transactions: recentTransactions, totalBalance, monthlyIncome: initialIncome, monthlyExpenses: initialExpenses, isLoading: dashboardLoading } = useDashboardData(preferredCurrency);
+  const { accounts } = useAccounts();
+  const { categories } = useCategories();
 
   // Get filtered stats
   const { stats, isLoading: statsLoading } = useDashboardStats(
