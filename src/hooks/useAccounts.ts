@@ -79,8 +79,11 @@ export function useAccounts() {
     },
   });
 
+  const accountsData = query.data || [];
+  console.log("[v0-debug] useAccounts - query.isLoading:", query.isLoading, "accounts length:", accountsData.length, "accounts:", accountsData);
+  
   return {
-    accounts: query.data || [],
+    accounts: accountsData,
     isLoading: query.isLoading,
     error: query.error,
     createAccount: createMutation.mutateAsync,

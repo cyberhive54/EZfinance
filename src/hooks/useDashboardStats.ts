@@ -199,6 +199,8 @@ export function useDashboardStats(
     enabled: !!user?.id,
   });
 
+  console.log("[v0-debug] useDashboardStats - isLoading:", statsQuery.isLoading, "stats:", statsQuery.data, "error:", statsQuery.error);
+  
   return {
     stats: statsQuery.data,
     isLoading: statsQuery.isLoading,

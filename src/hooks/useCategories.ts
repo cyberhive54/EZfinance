@@ -76,8 +76,11 @@ export function useCategories() {
     },
   });
 
+  const categoriesData = query.data || [];
+  console.log("[v0-debug] useCategories - query.isLoading:", query.isLoading, "categories length:", categoriesData.length, "categories:", categoriesData);
+  
   return {
-    categories: query.data || [],
+    categories: categoriesData,
     isLoading: query.isLoading,
     createCategory: createMutation.mutateAsync,
     updateCategory: updateMutation.mutateAsync,

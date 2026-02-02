@@ -40,6 +40,9 @@ export default function Dashboard() {
   const { accounts } = useAccounts();
   const { categories } = useCategories();
   
+  console.log("[v0-debug] Dashboard render - profileLoading:", profileLoading, "dashboardLoading:", dashboardLoading);
+  console.log("[v0-debug] accounts:", accounts?.length, "categories:", categories?.length);
+  
   // Date filter state
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>("this-month");
   const [customStartDate, setCustomStartDate] = useState<string>("");
@@ -59,8 +62,13 @@ export default function Dashboard() {
     customYear
   );
 
+  console.log("[v0-debug] statsLoading:", statsLoading);
+  console.log("[v0-debug] stats object:", stats);
+  
   // Only show loading state during initial dashboard data load or when accounts/categories are missing
   const isInitialLoading = profileLoading || dashboardLoading || !accounts || !categories || accounts.length === 0 || categories.length === 0;
+
+  console.log("[v0-debug] isInitialLoading:", isInitialLoading);
 
   if (isInitialLoading) {
     return <DashboardSkeleton />;
@@ -72,6 +80,9 @@ export default function Dashboard() {
   const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0;
 
   // Process categories data for charts - ensure categories are available
+  console.log("[v0-debug] useMemo deps - stats:", stats, "categories:", categories);
+  console.log("[v0-debug] stats type:", typeof stats, "is array?", Array.isArray(stats));
+  console.log("[v0-debug] categories type:", typeof categories, "is array?", Array.isArray(categories));
   const incomeByCategories = useMemo(() => {
     if (!stats || !stats.incomeByCategory || !categories || categories.length === 0) return [];
     return Object.entries(stats.incomeByCategory)
