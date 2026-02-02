@@ -18,6 +18,7 @@ export interface Budget {
   is_recurring: boolean;
   rollover_amount: number;
   is_overall: boolean;
+  manual_rollover: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -39,6 +40,7 @@ export interface CreateBudgetInput {
   end_date?: string;
   is_recurring?: boolean;
   is_overall?: boolean;
+  manual_rollover?: boolean;
 }
 
 export interface UpdateBudgetInput {
@@ -48,6 +50,7 @@ export interface UpdateBudgetInput {
   start_date?: string;
   end_date?: string;
   is_recurring?: boolean;
+  manual_rollover?: boolean;
 }
 
 // Calculate period dates based on period type

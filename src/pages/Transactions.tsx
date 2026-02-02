@@ -14,13 +14,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { CurrencyInput } from "@/components/ui/currency-input";
-import { Plus, ArrowUpRight, ArrowDownRight, Loader2, Trash2, Target, AlertCircle, Copy, Edit2, ChevronUp, ChevronDown, ArrowUpDown, MoreHorizontal, X, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, ArrowUpRight, ArrowDownRight, Loader2, Trash2, Target, AlertCircle, Copy, Edit2, ChevronUp, ChevronDown, ArrowUpDown, MoreHorizontal, X, Calendar as CalendarIcon, Download, Eye } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { uploadTransactionAttachment } from "@/utils/cloudinary";
 import { supabase } from "@/integrations/supabase/client";
 import { useTransactionAttachments } from "@/hooks/useTransactionAttachments";
@@ -42,9 +43,10 @@ type EditingTransaction = {
   notes: string;
 } | null;
 
-// AttachmentCell component to display attachments for a transaction
+// AttachmentCell component to display attachments for a transaction with modal
 function AttachmentCell({ transactionId }: { transactionId: string }) {
   const { attachments, isLoading } = useTransactionAttachments(transactionId);
+  const [isOpen, setIsOpen] = useState(false);
   
   if (isLoading) {
     return <span className="text-muted-foreground text-xs">Loading...</span>;
@@ -54,11 +56,67 @@ function AttachmentCell({ transactionId }: { transactionId: string }) {
     return <span className="text-muted-foreground">—</span>;
   }
 
+  const handleDownload = (url: string, fileName: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
-    <div className="flex items-center gap-1">
-      <FileImage className="h-4 w-4 text-accent" />
-      <span className="text-sm font-medium text-accent">{attachments.length}</span>
-    </div>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <button className="flex items-center gap-1 cursor-pointer hover:opacity-70 transition-opacity">
+          <FileImage className="h-4 w-4 text-accent" />
+          <span className="text-sm font-medium text-accent">{attachments.length}</span>
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Transaction Attachments ({attachments.length})</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 max-h-96 overflow-y-auto p-4">
+          {attachments.map((attachment) => (
+            <div key={attachment.id} className="flex items-start gap-3 border border-border rounded-lg p-3 hover:bg-muted/50 transition-colors">
+              <img 
+                src={attachment.cloudinary_url} 
+                alt={attachment.file_name || "Attachment"}
+                className="h-16 w-16 object-cover rounded border border-border/50 flex-shrink-0"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">{attachment.file_name || "Image"}</p>
+                <p className="text-xs text-muted-foreground">
+                  {attachment.file_size ? `${(attachment.file_size / 1024 / 1024).toFixed(2)} MB` : "N/A"}
+                </p>
+                {attachment.cloudinary_url && (
+                  <p className="text-xs text-muted-foreground truncate break-all">{attachment.cloudinary_url}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <a 
+                  href={attachment.cloudinary_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="p-2 hover:bg-background rounded transition-colors"
+                  title="View"
+                >
+                  <Eye className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                </a>
+                <button
+                  onClick={() => handleDownload(attachment.cloudinary_url, attachment.file_name || "attachment")}
+                  className="p-2 hover:bg-background rounded transition-colors"
+                  title="Download"
+                >
+                  <Download className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -75,9 +133,12 @@ export default function Transactions() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchCategoryInput, setSearchCategoryInput] = useState("");
   const [searchMonthInput, setSearchMonthInput] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense" | "transfer-sender" | "transfer-receiver" | "transfer">("all");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [categoryTab, setCategoryTab] = useState<"all" | "income" | "expense">("all");
+  const [accountFilter, setAccountFilter] = useState<string>("all");
+  const [accountSearchInput, setAccountSearchInput] = useState("");
   const [amountMin, setAmountMin] = useState<number | null>(null);
   const [amountMax, setAmountMax] = useState<number | null>(null);
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>("all");
@@ -171,7 +232,11 @@ export default function Transactions() {
 
     // Type filter
     if (typeFilter !== "all") {
-      result = result.filter((t) => t.type === typeFilter);
+      if (typeFilter === "transfer") {
+        result = result.filter((t) => t.type === "transfer-sender" || t.type === "transfer-receiver");
+      } else {
+        result = result.filter((t) => t.type === typeFilter);
+      }
     }
 
     // Payment method filter (account-based)
@@ -182,6 +247,11 @@ export default function Transactions() {
     // Category filter
     if (categoryFilter !== "all") {
       result = result.filter((t) => t.category_id === categoryFilter);
+    }
+
+    // Account filter
+    if (accountFilter !== "all") {
+      result = result.filter((t) => t.account_id === accountFilter);
     }
 
     // Amount range filter
@@ -250,7 +320,7 @@ export default function Transactions() {
     });
 
     return result;
-  }, [transactions, typeFilter, paymentMethodFilter, categoryFilter, frequencyFilter, amountMin, amountMax, dateFilterType, customStartDate, customEndDate, customMonth, customYear, searchQuery, sortField, sortOrder, categories]);
+  }, [transactions, typeFilter, paymentMethodFilter, categoryFilter, accountFilter, frequencyFilter, amountMin, amountMax, dateFilterType, customStartDate, customEndDate, customMonth, customYear, searchQuery, sortField, sortOrder, categories]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
@@ -428,7 +498,7 @@ export default function Transactions() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.account_id || !formData.amount || hasValidationError) return;
+    if (!formData.account_id || !formData.amount || !formData.category_id || hasValidationError) return;
     
     console.log("[v0] FORM SUBMIT: Starting transaction form submission", {
       hasAttachments: uploadingAttachments.length > 0,
@@ -599,18 +669,19 @@ export default function Transactions() {
 
               {/* Title - Top */}
               <div className="space-y-2">
-                <Label>Title</Label>
+                <Label>Title <span className="text-destructive">*</span></Label>
                 <Input 
                   placeholder="e.g., Grocery shopping"
                   value={formData.description} 
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })} 
+                  required
                 />
               </div>
 
               {/* Amount & Transaction Date - Half Width */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Amount</Label>
+                  <Label>Amount <span className="text-destructive">*</span></Label>
                   <CurrencyInput 
                     currencySymbol={currencySymbol}
                     step="0.01" 
@@ -620,7 +691,7 @@ export default function Transactions() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Transaction Date</Label>
+                  <Label>Transaction Date <span className="text-destructive">*</span></Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
@@ -650,18 +721,18 @@ export default function Transactions() {
               {/* Account & Category - Half Width */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Account</Label>
+                  <Label>Account <span className="text-destructive">*</span></Label>
                   <Select value={formData.account_id} onValueChange={(v) => setFormData({ ...formData, account_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+                    <SelectTrigger className={!formData.account_id ? "border-destructive" : ""}><SelectValue placeholder="Select account" /></SelectTrigger>
                     <SelectContent>
                       {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Category</Label>
+                  <Label>Category <span className="text-destructive">*</span></Label>
                   <Select value={formData.category_id} onValueChange={(v) => setFormData({ ...formData, category_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectTrigger className={!formData.category_id ? "border-destructive" : ""}><SelectValue placeholder="Select category" /></SelectTrigger>
                     <SelectContent>
                       {(formData.type === "income" ? incomeCategories : expenseCategories).map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -913,26 +984,53 @@ export default function Transactions() {
               <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="income">Income</SelectItem>
               <SelectItem value="expense">Expense</SelectItem>
+              <SelectItem value="transfer">Transfer</SelectItem>
             </SelectContent>
           </Select>
 
-          {/* Payment Method Filter */}
-          <Select value={paymentMethodFilter} onValueChange={(v) => {
-            setPaymentMethodFilter(v);
-            setCurrentPage(1);
-          }}>
-            <SelectTrigger className="w-full lg:w-auto min-w-[130px]">
-              <SelectValue placeholder="Payment" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Methods</SelectItem>
-              {accounts.map((acc) => (
-                <SelectItem key={acc.id} value={acc.id}>
-                  {acc.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Account Filter with Search */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full lg:w-auto min-w-[130px]">
+                Account {(accountFilter !== "all") && "✓"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56 p-4" align="end">
+              <div className="space-y-3">
+                <Input
+                  placeholder="Search accounts..."
+                  value={accountSearchInput}
+                  onChange={(e) => setAccountSearchInput(e.target.value.toLowerCase())}
+                  className="h-8"
+                />
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  <button
+                    onClick={() => {
+                      setAccountFilter("all");
+                      setCurrentPage(1);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded text-sm ${accountFilter === "all" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                  >
+                    All Accounts
+                  </button>
+                  {accounts
+                    .filter((acc) => acc.name.toLowerCase().includes(accountSearchInput))
+                    .map((acc) => (
+                      <button
+                        key={acc.id}
+                        onClick={() => {
+                          setAccountFilter(acc.id);
+                          setCurrentPage(1);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded text-sm ${accountFilter === acc.id ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                      >
+                        {acc.name}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Category Filter with Tabs */}
           <DropdownMenu>
@@ -949,16 +1047,12 @@ export default function Transactions() {
                   onChange={(e) => setSearchCategoryInput(e.target.value.toLowerCase())}
                   className="h-8"
                 />
-                <Tabs defaultValue="all" onValueChange={(v) => {
-                  if (v === "all") {
-                    setCategoryFilter("all");
-                  }
+                <Tabs value={categoryTab} onValueChange={(v: any) => {
+                  setCategoryTab(v);
+                  setCategoryFilter("all");
                 }}>
                   <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="all" onClick={() => {
-                      setCategoryFilter("all");
-                      setCurrentPage(1);
-                    }}>All</TabsTrigger>
+                    <TabsTrigger value="all">All</TabsTrigger>
                     <TabsTrigger value="income">Income</TabsTrigger>
                     <TabsTrigger value="expense">Expense</TabsTrigger>
                   </TabsList>
@@ -973,7 +1067,7 @@ export default function Transactions() {
                   >
                     All Categories
                   </button>
-                  {incomeCategories
+                  {(categoryTab === "all" || categoryTab === "income") && incomeCategories
                     .filter((cat) => cat.name.toLowerCase().includes(searchCategoryInput))
                     .map((cat) => (
                       <button
@@ -987,7 +1081,7 @@ export default function Transactions() {
                         {cat.name}
                       </button>
                     ))}
-                  {expenseCategories
+                  {(categoryTab === "all" || categoryTab === "expense") && expenseCategories
                     .filter((cat) => cat.name.toLowerCase().includes(searchCategoryInput))
                     .map((cat) => (
                       <button
@@ -1359,13 +1453,14 @@ export default function Transactions() {
                       {getSortIcon("transaction_date")}
                     </div>
                   </th>
-                  <th className="px-4 py-3 text-left hidden xl:table-cell font-semibold text-foreground">Payment Method</th>
-                  <th className="px-4 py-3 text-left hidden md:table-cell font-semibold text-foreground">Frequency</th>
+                  <th className="px-4 py-3 text-left hidden lg:table-cell font-semibold text-foreground">Account</th>
                   <th className="px-4 py-3 text-left hidden lg:table-cell font-semibold text-foreground">Notes</th>
-                  <th className="px-4 py-3 text-center hidden md:table-cell font-semibold text-foreground">Attachments</th>
-                  <th className="px-4 py-3 text-left cursor-pointer hover:bg-muted/70" onClick={() => toggleSort("date_created")}>
+                  <th className="px-4 py-3 text-center hidden md:table-cell font-semibold text-foreground w-10" title="Attachments">
+                    <FileImage className="h-4 w-4" />
+                  </th>
+                  <th className="px-4 py-3 text-left cursor-pointer hover:bg-muted/70 hidden xl:table-cell" onClick={() => toggleSort("date_created")}>
                     <div className="flex items-center gap-2 font-semibold text-foreground">
-                      Date Created
+                      Created
                       {getSortIcon("date_created")}
                     </div>
                   </th>
@@ -1395,13 +1490,17 @@ export default function Transactions() {
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`px-2.5 py-0.5 text-xs font-semibold rounded ${
+                        className={`px-2.5 py-0.5 text-xs font-semibold rounded whitespace-nowrap ${
                           transaction.type === "income"
                             ? "bg-accent/20 text-accent"
-                            : "bg-destructive/20 text-destructive"
+                            : transaction.type === "expense"
+                              ? "bg-destructive/20 text-destructive"
+                              : transaction.type === "transfer-sender"
+                                ? "bg-blue-500/20 text-blue-500"
+                                : "bg-green-500/20 text-green-500"
                         }`}
                       >
-                        {transaction.type === "income" ? "INCOME" : "EXPENSE"}
+                        {transaction.type === "income" ? "INCOME" : transaction.type === "expense" ? "EXPENSE" : transaction.type === "transfer-sender" ? "OUT" : "IN"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold">
@@ -1415,20 +1514,23 @@ export default function Transactions() {
                     <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
                       {format(new Date(transaction.transaction_date), "MMM dd, yyyy")}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground hidden xl:table-cell">
+                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell text-sm">
                       {accounts.find((a) => a.id === transaction.account_id)?.name || "—"}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground hidden md:table-cell text-sm">
-                      <span className="capitalize">{transaction.frequency || "none"}</span>
+                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell text-sm max-w-xs">
+                      {transaction.notes ? (
+                        <div title={transaction.notes} className="truncate cursor-help hover:text-foreground transition-colors">
+                          {transaction.notes}
+                        </div>
+                      ) : (
+                        "—"
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell text-sm max-w-[200px] truncate">
-                      {transaction.notes || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-center hidden md:table-cell text-sm">
+                    <td className="px-4 py-3 text-center hidden md:table-cell text-sm w-10">
                       <AttachmentCell transactionId={transaction.id} />
                     </td>
-                    <td className="px-4 py-3 text-foreground text-sm">
-                      {format(new Date(transaction.created_at || new Date()), "MMM dd, yyyy")}
+                    <td className="px-4 py-3 text-foreground text-sm hidden xl:table-cell">
+                      {format(new Date(transaction.created_at || new Date()), "MMM dd")}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <DropdownMenu>
