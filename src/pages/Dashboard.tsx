@@ -48,6 +48,8 @@ export default function Dashboard() {
   const [customYear, setCustomYear] = useState<string>(new Date().getFullYear().toString());
   const [searchMonthInput, setSearchMonthInput] = useState("");
   const [transactionLayout, setTransactionLayout] = useState<TransactionLayout>("grid");
+  const [chartType, setChartType] = useState<"line" | "bar">("line");
+  const [accountChartType, setAccountChartType] = useState<"line" | "bar">("bar");
 
   // Get filtered stats
   const { stats, isLoading: statsLoading } = useDashboardStats(
@@ -146,9 +148,6 @@ export default function Dashboard() {
       color: "#ef4444",
     },
   };
-
-  const [chartType, setChartType] = useState<"line" | "bar">("line");
-  const [accountChartType, setAccountChartType] = useState<"line" | "bar">("bar");
 
   const renderChart = (data: any[], type: "line" | "bar", config: any) => {
     if (type === "line") {
