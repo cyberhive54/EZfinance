@@ -31,12 +31,12 @@ The budget system lets you set spending limits and track how much you've spent. 
 - **Custom**: You pick start and end dates
 
 ### How Dates Are Set:
-```
+\`\`\`
 Period: Monthly
 Today: Feb 3, 2026
 → Budget: Feb 1 - Feb 28
 → Automatically calculated, user picks period type
-```
+\`\`\`
 
 ---
 
@@ -45,20 +45,20 @@ Today: Feb 3, 2026
 ### Simple Flow:
 
 **For Overall Budget:**
-```
+\`\`\`
 1. Get all expenses in the period
 2. Add them up
 3. Compare to budget limit
 4. Show: "You spent $1500 of $2000" (75%)
-```
+\`\`\`
 
 **For Category Budget:**
-```
+\`\`\`
 1. Get all expenses in the period AND for that category
 2. Add them up
 3. Compare to budget limit
 4. Show: "Groceries: $280 of $300" (93%)
-```
+\`\`\`
 
 ---
 
@@ -93,13 +93,13 @@ Today: Feb 3, 2026
 Auto-create the same budget for next period
 
 ### How It Works:
-```
+\`\`\`
 1. Create budget: Amount $500, Monthly, Recurring=true
 2. Budget runs: Feb 1 - Feb 28
 3. Around Feb 28, system auto-creates next budget: Mar 1 - Mar 31
 4. Same $500 limit, new period
 5. Any unused amount (rollover) is added to March budget
-```
+\`\`\`
 
 ### Constraints:
 - ✅ Works with: Weekly or Monthly
@@ -111,25 +111,25 @@ Auto-create the same budget for next period
 ## Visual Indicators
 
 ### Progress Bar:
-```
+\`\`\`
 Under Budget:      [==============    ] 65% spent (Green/Primary color)
 Near Limit:        [================  ] 80% spent (Warning color)
 Over Budget:       [===================] 110% spent (Red/Destructive)
-```
+\`\`\`
 
 ### Status Messages:
-```
+\`\`\`
 $450 of $500 spent      → Normal
 $500 of $500 spent      → At limit
 $520 of $500 spent      → OVER BUDGET ⚠️
-```
+\`\`\`
 
 ---
 
 ## Practical Examples
 
 ### Example 1: Simple Monthly Budget
-```
+\`\`\`
 Category: Groceries
 Budget Amount: $300
 Period: Monthly (Mar 1 - Mar 31)
@@ -144,10 +144,10 @@ Total: $170 of $300 (57%)
 Remaining: $130
 Rollover to April: $130
 Next month's budget: $300 + $130 = $430
-```
+\`\`\`
 
 ### Example 2: Annual Budget with Overspending
-```
+\`\`\`
 Category: Dining Out
 Budget Amount: $200
 Period: Monthly (Feb 1 - Feb 28)
@@ -158,7 +158,7 @@ Spent: $220
 Status: OVER BUDGET ⚠️
 Exceeded by: $20
 Percentage: 110%
-```
+\`\`\`
 
 ---
 
@@ -194,7 +194,7 @@ Percentage: 110%
 ## Common Scenarios
 
 ### Scenario 1: "I spent too much this month"
-```
+\`\`\`
 Budget Set: $500
 Actually Spent: $600
 Overspend: $100
@@ -204,10 +204,10 @@ What Happens:
 - Shows: "Over budget by $100"
 - Remaining shows: $0 (you're $100 in debt)
 - Next period gets no rollover
-```
+\`\`\`
 
 ### Scenario 2: "I saved money this month"
-```
+\`\`\`
 Budget Set: $500
 Actually Spent: $350
 Saved: $150
@@ -217,10 +217,10 @@ What Happens:
 - Shows: "You saved $150"
 - $150 rolls to next period
 - Next month budget: $500 + $150 = $650
-```
+\`\`\`
 
 ### Scenario 3: "My spending varies each week"
-```
+\`\`\`
 Weekly Budget: $100
 
 Week 1: Spent $95  (95%)
@@ -229,14 +229,14 @@ Week 3: Spent $100 (new week, reset)
 Week 4: Spent $50  (50%) + $50 rollover
 
 System auto-creates new week budgets with rollovers
-```
+\`\`\`
 
 ---
 
 ## Data Flow
 
 ### Creating a Budget:
-```
+\`\`\`
 User selects budget params
   ↓
 System calculates date range
@@ -248,10 +248,10 @@ Saves to database
 Logs the action
   ↓
 Refreshes UI
-```
+\`\`\`
 
 ### Updating a Budget:
-```
+\`\`\`
 User modifies amount or period
   ↓
 Validates new values
@@ -263,10 +263,10 @@ Logs the change
 Recalculates spending
   ↓
 Refreshes UI
-```
+\`\`\`
 
 ### Recurring Budget (Automated):
-```
+\`\`\`
 System checks at midnight
   ↓
 Finds budgets where `is_recurring: true` and end_date < today
@@ -278,7 +278,7 @@ Includes rollover amount
 Creates new budget
   ↓
 Updates UI
-```
+\`\`\`
 
 ---
 
@@ -337,12 +337,12 @@ Updates UI
 
 ## Key Formulas
 
-```
+\`\`\`
 Percentage = (Spent ÷ (Amount + Rollover)) × 100
 Remaining = (Amount + Rollover) - Spent
 IsOverBudget = Spent > (Amount + Rollover)
 NextBudgetAmount = Amount + Unused
-```
+\`\`\`
 
 ---
 

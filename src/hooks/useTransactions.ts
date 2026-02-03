@@ -42,7 +42,12 @@ export function useTransactions() {
       if (error) throw error;
       
       // Update account balance
-      const balanceChange = transaction.type === "income" ? transaction.amount : -transaction.amount;
+      let balanceChange: number;
+      if (transaction.type === "income" || transaction.type === "transfer-receiver") {
+        balanceChange = transaction.amount;
+      } else {
+        balanceChange = -transaction.amount;
+      }
       await supabase.rpc("update_account_balance", { account_id: transaction.account_id, amount_change: balanceChange });
       
       // Update goal if linked
@@ -118,7 +123,12 @@ export function useTransactions() {
       if (error) throw error;
       
       // Revert account balance
-      const balanceChange = transaction.type === "income" ? -transaction.amount : transaction.amount;
+      let balanceChange: number;
+      if (transaction.type === "income" || transaction.type === "transfer-receiver") {
+        balanceChange = -transaction.amount;
+      } else {
+        balanceChange = transaction.amount;
+      }
       await supabase.rpc("update_account_balance", { account_id: transaction.account_id, amount_change: balanceChange });
       
       // Revert goal if linked

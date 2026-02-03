@@ -10,70 +10,70 @@ Comprehensive logging has been added to track attachment uploads, saves, edits, 
 ### 1. Upload Phase - Cloudinary
 
 #### Start Upload
-```
+\`\`\`
 [v0] ATTACHMENT UPLOAD: Starting upload process
   fileName: "photo.jpg"
   fileType: "image/jpeg"
   fileSize: "2.50MB"
   timestamp: "2026-02-01T10:30:00.000Z"
-```
+\`\`\`
 
 #### Environment Check
-```
+\`\`\`
 [v0] ATTACHMENT: Environment variables check
   cloudNameExists: true
   uploadPresetExists: true
   cloudName: "ezfin***"
   uploadPreset: "ezfin***"
-```
+\`\`\`
 
 #### Upload Request
-```
+\`\`\`
 [v0] ATTACHMENT: Sending upload request to Cloudinary
   uploadUrl: "https://api.cloudinary.com/v1_1/ezfinance/image/upload"
-```
+\`\`\`
 
 #### Response Received
-```
+\`\`\`
 [v0] ATTACHMENT: Cloudinary response received
   status: 200
   statusText: "OK"
   headers: { ... }
-```
+\`\`\`
 
 #### Success
-```
+\`\`\`
 [v0] ATTACHMENT: Upload successful
   publicId: "ezfinance/transactions/abc123def"
   url: "https://res.cloudinary.com/ezf***"
   fileSize: "2.50MB"
-```
+\`\`\`
 
 #### Error Cases
-```
+\`\`\`
 [v0] ATTACHMENT ERROR: Invalid file type
   receivedType: "application/pdf"
   allowedTypes: ["image/jpeg", "image/png", "image/webp"]
-```
+\`\`\`
 
-```
+\`\`\`
 [v0] ATTACHMENT ERROR: File size exceeds limit
   fileSize: "7.50MB"
   maxSize: "6.00MB"
-```
+\`\`\`
 
-```
+\`\`\`
 [v0] ATTACHMENT ERROR: Missing Cloudinary configuration
   VITE_CLOUDINARY_CLOUD_NAME: undefined
   VITE_CLOUDINARY_UPLOAD_PRESET: undefined
-```
+\`\`\`
 
 ---
 
 ### 2. Save Phase - Supabase Database
 
 #### Start Save
-```
+\`\`\`
 [v0] ATTACHMENT SAVE: Starting attachment save to Supabase
   transactionId: "trans_123456"
   userId: "user_789"
@@ -81,102 +81,102 @@ Comprehensive logging has been added to track attachment uploads, saves, edits, 
   fileName: "photo.jpg"
   fileSize: "2.50MB"
   timestamp: "2026-02-01T10:30:05.000Z"
-```
+\`\`\`
 
 #### Insert Payload
-```
+\`\`\`
 [v0] ATTACHMENT SAVE: Insert payload
   keys: ["transaction_id", "user_id", "cloudinary_public_id", "cloudinary_url", "original_filename", "file_size"]
   transactionId: "trans_123456"
-```
+\`\`\`
 
 #### Success
-```
+\`\`\`
 [v0] ATTACHMENT SAVE: Successfully saved
   attachmentId: "attach_456789"
   transactionId: "trans_123456"
-```
+\`\`\`
 
 #### Callback
-```
+\`\`\`
 [v0] ATTACHMENT SAVE: Success callback triggered
-```
+\`\`\`
 
 #### Error Cases
-```
+\`\`\`
 [v0] ATTACHMENT SAVE ERROR: Supabase insert failed
   code: "23502"
   message: "Failing row contains (null, trans_123456, ...)."
   details: "Failing row contains (null, trans_123456, ...). Key (user_id)=(null) is not present in table \"auth.users\"."
   hint: "null"
-```
+\`\`\`
 
 #### Mutation Error
-```
+\`\`\`
 [v0] ATTACHMENT SAVE: Mutation error
   error: "Failed to add attachment: Key violation"
-```
+\`\`\`
 
 ---
 
 ### 3. Delete Phase
 
 #### Start Delete
-```
+\`\`\`
 [v0] ATTACHMENT DELETE: Starting deletion
   attachmentId: "attach_456789"
   transactionId: "trans_123456"
   timestamp: "2026-02-01T10:31:00.000Z"
-```
+\`\`\`
 
 #### Success
-```
+\`\`\`
 [v0] ATTACHMENT DELETE: Successfully deleted
   attachmentId: "attach_456789"
-```
+\`\`\`
 
 #### Callback
-```
+\`\`\`
 [v0] ATTACHMENT DELETE: Success callback triggered
-```
+\`\`\`
 
 #### Error Cases
-```
+\`\`\`
 [v0] ATTACHMENT DELETE ERROR: Supabase delete failed
   code: "PGRST116"
   message: "The result contains 0 rows"
   details: null
   attachmentId: "attach_456789"
-```
+\`\`\`
 
 ---
 
 ### 4. Form Submission Phase
 
 #### Start Submission
-```
+\`\`\`
 [v0] FORM SUBMIT: Starting transaction form submission
   hasAttachments: true
   attachmentCount: 2
   isEditing: false
   timestamp: "2026-02-01T10:32:00.000Z"
-```
+\`\`\`
 
 #### Create Transaction
-```
+\`\`\`
 [v0] FORM SUBMIT: Creating new transaction
 [v0] FORM SUBMIT: New transaction created
   transactionId: "trans_123456"
-```
+\`\`\`
 
 #### Update Transaction
-```
+\`\`\`
 [v0] FORM SUBMIT: Updating existing transaction
   transactionId: "trans_existing"
-```
+\`\`\`
 
 #### Attachment Processing
-```
+\`\`\`
 [v0] FORM SUBMIT: Starting attachment uploads
   count: 2
   transactionId: "trans_123456"
@@ -192,10 +192,10 @@ Comprehensive logging has been added to track attachment uploads, saves, edits, 
   fileName: "photo1.jpg"
 
 [v0] FORM SUBMIT: All attachments processed
-```
+\`\`\`
 
 #### Error During Processing
-```
+\`\`\`
 [v0] FORM SUBMIT ERROR: Attachment processing failed
   fileName: "photo2.jpg"
   error: "File size exceeds 6MB limit"
@@ -203,7 +203,7 @@ Comprehensive logging has been added to track attachment uploads, saves, edits, 
 [v0] FORM SUBMIT ERROR: Transaction submission failed
   error: "Connection timeout"
   stack: "Error: Connection timeout\n    at fetch:45..."
-```
+\`\`\`
 
 ---
 
@@ -217,9 +217,9 @@ Comprehensive logging has been added to track attachment uploads, saves, edits, 
    - `VITE_CLOUDINARY_CLOUD_NAME`
    - `VITE_CLOUDINARY_UPLOAD_PRESET`
 3. In console, look for:
-   ```
+   \`\`\`
    [v0] ATTACHMENT: Environment variables check
-   ```
+   \`\`\`
    - If `cloudNameExists: false` → variable not set
    - If `uploadPresetExists: false` → preset not set
 
@@ -266,12 +266,12 @@ Comprehensive logging has been added to track attachment uploads, saves, edits, 
 ## Verifying Setup
 
 ### Step 1: Check Console Logs
-```javascript
+\`\`\`javascript
 // Run this in browser console to see all v0 logs
 console.log("Checking for v0 logs...");
 // Add transaction and upload attachment
 // Look for [v0] logs appearing in real-time
-```
+\`\`\`
 
 ### Step 2: Check Cloudinary Dashboard
 1. Go to cloudinary.com → Dashboard
@@ -282,12 +282,12 @@ console.log("Checking for v0 logs...");
 ### Step 3: Check Supabase Database
 1. Go to Supabase Dashboard → SQL Editor
 2. Run this query:
-```sql
+\`\`\`sql
 SELECT id, transaction_id, cloudinary_public_id, cloudinary_url, created_at 
 FROM transaction_attachments 
 ORDER BY created_at DESC 
 LIMIT 10;
-```
+\`\`\`
 3. Your attachments should appear in the results
 
 ### Step 4: Network Tab Check
