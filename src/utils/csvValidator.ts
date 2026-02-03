@@ -98,10 +98,10 @@ export function validateRow(
   // Validate account (for non-transfer transactions)
   if (transactionType && !transactionType.startsWith("transfer")) {
     if (mappedValues.account_id !== undefined && mappedValues.account_id !== "") {
-      const accountInput = normalizeFieldName(String(mappedValues.account_id));
-      // Try to find account by normalized name or ID
+      const accountInput = String(mappedValues.account_id).trim();
+      // Find account by exact name match (case-insensitive)
       const account = context.accounts.find((a) => 
-        a.id === accountInput || normalizeFieldName(a.name) === accountInput
+        a.name.toLowerCase() === accountInput.toLowerCase()
       );
       
       if (!account) {
@@ -124,14 +124,15 @@ export function validateRow(
   if (transactionType?.startsWith("transfer")) {
     // Validate from_account
     if (mappedValues.from_account !== undefined && mappedValues.from_account !== "") {
-      const fromInput = normalizeFieldName(String(mappedValues.from_account));
+      const fromInput = String(mappedValues.from_account).trim();
       const fromAccount = context.accounts.find((a) => 
-        a.id === fromInput || normalizeFieldName(a.name) === fromInput
+        a.name.toLowerCase() === fromInput.toLowerCase()
       );
       if (!fromAccount) {
+        const suggestedAccounts = context.accounts.map((a) => a.name).join(", ");
         errors.push({
           field: "from_account",
-          message: `From account "${fromInput}" not found`,
+          message: `From account "${fromInput}" not found. Available: ${suggestedAccounts}`,
           rowValue: fromInput,
         });
       }
@@ -144,14 +145,15 @@ export function validateRow(
 
     // Validate to_account
     if (mappedValues.to_account !== undefined && mappedValues.to_account !== "") {
-      const toInput = normalizeFieldName(String(mappedValues.to_account));
+      const toInput = String(mappedValues.to_account).trim();
       const toAccount = context.accounts.find((a) => 
-        a.id === toInput || normalizeFieldName(a.name) === toInput
+        a.name.toLowerCase() === toInput.toLowerCase()
       );
       if (!toAccount) {
+        const suggestedAccounts = context.accounts.map((a) => a.name).join(", ");
         errors.push({
           field: "to_account",
-          message: `To account "${toInput}" not found`,
+          message: `To account "${toInput}" not found. Available: ${suggestedAccounts}`,
           rowValue: toInput,
         });
       }
@@ -164,8 +166,8 @@ export function validateRow(
 
     // Validate from != to
     if (mappedValues.from_account && mappedValues.to_account) {
-      const fromNorm = normalizeFieldName(String(mappedValues.from_account));
-      const toNorm = normalizeFieldName(String(mappedValues.to_account));
+      const fromNorm = String(mappedValues.from_account).trim().toLowerCase();
+      const toNorm = String(mappedValues.to_account).trim().toLowerCase();
       if (fromNorm === toNorm) {
         errors.push({
           field: "to_account",
@@ -176,19 +178,35 @@ export function validateRow(
     }
   }
 
-  // Validate category (optional but if provided, must exist)
+  // Validate category (optional but if provided, must exist and match transaction type)
   if (mappedValues.category !== undefined && mappedValues.category !== "") {
     const categoryValue = String(mappedValues.category).trim();
-    if (!context.categories.some((c) => c.name.toLowerCase() === categoryValue.toLowerCase())) {
-      const suggestedCategories = context.categories
-        .filter((c) => c.type === transactionType?.includes("income") ? "income" : "expense")
-        .map((c) => c.name)
-        .join(", ");
+    
+    // For transfers, categories should not be set
+    if (transactionType?.startsWith("transfer")) {
       errors.push({
         field: "category",
-        message: `Category "${categoryValue}" not found. Available: ${suggestedCategories}`,
+        message: "Categories cannot be set for transfer transactions",
         rowValue: categoryValue,
       });
+    } else {
+      // For income/expense, validate category matches type
+      const expectedType = transactionType === "income" ? "income" : "expense";
+      const matchingCategory = context.categories.find(
+        (c) => c.name.toLowerCase() === categoryValue.toLowerCase() && c.type === expectedType
+      );
+      
+      if (!matchingCategory) {
+        const suggestedCategories = context.categories
+          .filter((c) => c.type === expectedType)
+          .map((c) => c.name)
+          .join(", ");
+        errors.push({
+          field: "category",
+          message: `Category "${categoryValue}" not found for ${expectedType} transactions. Available: ${suggestedCategories || "none"}`,
+          rowValue: categoryValue,
+        });
+      }
     }
   }
 
@@ -239,33 +257,78 @@ export function validateRow(
     }
   }
 
-  // Validate goal_name and deduction_type relationship
-  if (mappedValues.deduction_type && !mappedValues.goal_name) {
+  // Validate goal-related fields
+  const hasGoal = mappedValues.goal_name !== undefined && mappedValues.goal_name !== "";
+  const hasDeduction = mappedValues.deduction_type !== undefined && mappedValues.deduction_type !== "";
+  const hasContribution = mappedValues.contribute_to_goal !== undefined && mappedValues.contribute_to_goal !== "";
+  const hasSplitAmount = mappedValues.split_amount !== undefined && mappedValues.split_amount !== "";
+
+  // Validate: deduction_type requires goal_name
+  if (hasDeduction && !hasGoal) {
     errors.push({
       field: "deduction_type",
-      message: "Deduction type cannot be present without a goal name",
+      message: "Deduction type requires goal_name to be specified",
       rowValue: mappedValues.deduction_type,
     });
   }
 
-  if (mappedValues.goal_name && !mappedValues.deduction_type) {
+  // Validate: contribute_to_goal requires goal_name
+  if (hasContribution && !hasGoal) {
     errors.push({
-      field: "goal_name",
-      message: "Goal name cannot be present without a deduction type",
-      rowValue: mappedValues.goal_name,
+      field: "contribute_to_goal",
+      message: "Contribute to goal requires goal_name to be specified",
+      rowValue: mappedValues.contribute_to_goal,
     });
   }
 
-  if (mappedValues.goal_name && mappedValues.deduction_type) {
+  // Validate: cannot have both deduction_type and contribute_to_goal
+  if (hasDeduction && hasContribution) {
+    errors.push({
+      field: "contribute_to_goal",
+      message: "Cannot have both deduction_type and contribute_to_goal in the same row",
+      rowValue: mappedValues.contribute_to_goal,
+    });
+  }
+
+  // Validate deduction_type values
+  if (hasDeduction) {
     const deductionType = String(mappedValues.deduction_type).trim().toLowerCase();
-    // If split type, validate split_amount
+    if (!["full", "split"].includes(deductionType)) {
+      errors.push({
+        field: "deduction_type",
+        message: `Invalid deduction type: "${deductionType}". Must be "full" or "split"`,
+        rowValue: deductionType,
+      });
+    }
+
+    // If deduction_type is "full", split_amount must be empty
+    if (deductionType === "full" && hasSplitAmount) {
+      errors.push({
+        field: "split_amount",
+        message: "Split amount cannot be specified when deduction type is 'full'",
+        rowValue: mappedValues.split_amount,
+      });
+    }
+
+    // If deduction_type is "split", split_amount is required and must be positive and less than amount
     if (deductionType === "split") {
-      if (mappedValues.split_amount !== undefined && mappedValues.split_amount !== "") {
+      if (!hasSplitAmount) {
+        errors.push({
+          field: "split_amount",
+          message: "Split amount is required when deduction type is 'split'",
+        });
+      } else {
         const splitAmount = parseFloat(String(mappedValues.split_amount));
         if (isNaN(splitAmount) || splitAmount <= 0) {
           errors.push({
             field: "split_amount",
             message: `Split amount must be a positive number, got: ${mappedValues.split_amount}`,
+            rowValue: mappedValues.split_amount,
+          });
+        } else if (splitAmount >= mappedValues.amount) {
+          errors.push({
+            field: "split_amount",
+            message: `Split amount (${splitAmount}) must be less than transaction amount (${mappedValues.amount})`,
             rowValue: mappedValues.split_amount,
           });
         } else {
@@ -279,10 +342,33 @@ export function validateRow(
             });
           }
         }
-      } else {
+      }
+    }
+  }
+
+  // Validate contribute_to_goal
+  if (hasContribution) {
+    const contributionAmount = parseFloat(String(mappedValues.contribute_to_goal));
+    if (isNaN(contributionAmount) || contributionAmount <= 0) {
+      errors.push({
+        field: "contribute_to_goal",
+        message: `Contribution amount must be a positive number, got: ${mappedValues.contribute_to_goal}`,
+        rowValue: mappedValues.contribute_to_goal,
+      });
+    } else if (contributionAmount > mappedValues.amount) {
+      errors.push({
+        field: "contribute_to_goal",
+        message: `Contribution amount (${contributionAmount}) cannot exceed transaction amount (${mappedValues.amount})`,
+        rowValue: mappedValues.contribute_to_goal,
+      });
+    } else {
+      // Check decimal places
+      const decimalPlaces = String(mappedValues.contribute_to_goal).split('.')[1]?.length || 0;
+      if (decimalPlaces > 2) {
         errors.push({
-          field: "split_amount",
-          message: "Split amount is required when deduction type is 'split'",
+          field: "contribute_to_goal",
+          message: `Contribution amount can have maximum 2 decimal places, got: ${decimalPlaces}. Value: ${mappedValues.contribute_to_goal}`,
+          rowValue: mappedValues.contribute_to_goal,
         });
       }
     }

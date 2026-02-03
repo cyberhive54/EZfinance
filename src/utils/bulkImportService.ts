@@ -138,10 +138,10 @@ async function importRegularTransaction(
   categories: any[],
   goals: Goal[]
 ) {
-  // Normalize account name for lookup (same as validation)
-  const accountInput = normalizeFieldName(String(mappedData.account_id || ""));
+  // Find account by exact name match (case-insensitive)
+  const accountInput = String(mappedData.account_id || "").trim();
   const account = accounts.find((a) => 
-    a.id === accountInput || normalizeFieldName(a.name) === accountInput
+    a.name.toLowerCase() === accountInput.toLowerCase()
   );
   if (!account) {
     throw new Error(`Account "${accountInput}" not found`);
@@ -155,6 +155,8 @@ async function importRegularTransaction(
 
   let goal = null;
   let goalAmount = null;
+  let goalAllocationMode = null; // "deduct" or "contribute"
+  
   if (mappedData.goal_name) {
     // Normalize goal name for lookup
     const goalInput = normalizeFieldName(String(mappedData.goal_name));
@@ -162,12 +164,20 @@ async function importRegularTransaction(
     if (!goal) {
       throw new Error(`Goal ${mappedData.goal_name} not found`);
     }
-    // Calculate goal amount based on deduction type
-    if (mappedData.deduction_type === "full") {
-      goalAmount = mappedData.amount; // Full amount for full type
-    } else if (mappedData.deduction_type === "split") {
-      // For split, use split_amount if provided, otherwise use half the amount
-      goalAmount = mappedData.split_amount ? parseFloat(String(mappedData.split_amount)) : mappedData.amount / 2;
+
+    // Determine if this is a deduction or contribution
+    if (mappedData.deduction_type) {
+      goalAllocationMode = "deduct";
+      // Calculate goal amount based on deduction type
+      if (mappedData.deduction_type === "full") {
+        goalAmount = mappedData.amount; // Full amount for full type
+      } else if (mappedData.deduction_type === "split") {
+        // For split, use split_amount if provided, otherwise use half the amount
+        goalAmount = mappedData.split_amount ? parseFloat(String(mappedData.split_amount)) : mappedData.amount / 2;
+      }
+    } else if (mappedData.contribute_to_goal) {
+      goalAllocationMode = "contribute";
+      goalAmount = parseFloat(String(mappedData.contribute_to_goal));
     }
   }
 
@@ -181,7 +191,7 @@ async function importRegularTransaction(
   // Insert transaction
   const { error: txError } = await supabase.from("transactions").insert({
     user_id: userId,
-    account_id: account.id, // Use the actual account ID found from lookup
+    account_id: account.id,
     category_id: category?.id || null,
     type: normalizedType,
     amount: parseFloat(String(mappedData.amount)),
@@ -192,7 +202,7 @@ async function importRegularTransaction(
     frequency: mappedData.frequency || "none",
     goal_id: goal?.id || null,
     goal_amount: goalAmount,
-    goal_allocation_type: mappedData.deduction_type || null,
+    goal_allocation_type: goalAllocationMode || mappedData.deduction_type || null,
   });
 
   if (txError) throw txError;
@@ -206,7 +216,7 @@ async function importRegularTransaction(
   }
 
   const { error: balError } = await supabase.rpc("update_account_balance", {
-    account_id: account.id, // Use the actual account ID found from lookup
+    account_id: account.id,
     amount_change: balanceChange,
   });
 
@@ -221,10 +231,15 @@ async function importRegularTransaction(
       .single();
 
     if (currentGoal) {
-      const newAmount = Math.max(
-        0,
-        currentGoal.current_amount - goalAmount // Deduct from goal
-      );
+      let newAmount;
+      if (goalAllocationMode === "contribute") {
+        // Add to goal
+        newAmount = currentGoal.current_amount + goalAmount;
+      } else {
+        // Deduct from goal (default)
+        newAmount = Math.max(0, currentGoal.current_amount - goalAmount);
+      }
+      
       await supabase
         .from("goals")
         .update({ current_amount: newAmount })
@@ -243,15 +258,15 @@ async function importTransferTransaction(
   accounts: Account[],
   categories: any[]
 ) {
-  // Normalize account names for lookup (same as validation)
-  const fromInput = normalizeFieldName(String(mappedData.from_account || ""));
-  const toInput = normalizeFieldName(String(mappedData.to_account || ""));
+  // Find accounts by exact name match (case-insensitive)
+  const fromInput = String(mappedData.from_account || "").trim();
+  const toInput = String(mappedData.to_account || "").trim();
   
   const fromAccount = accounts.find((a) => 
-    a.id === fromInput || normalizeFieldName(a.name) === fromInput
+    a.name.toLowerCase() === fromInput.toLowerCase()
   );
   const toAccount = accounts.find((a) => 
-    a.id === toInput || normalizeFieldName(a.name) === toInput
+    a.name.toLowerCase() === toInput.toLowerCase()
   );
 
   if (!fromAccount || !toAccount) {
@@ -349,9 +364,17 @@ function extractMappedData(row: ParsedCSVRow, mapping: HeaderMapping) {
           const normalized = normalizeTransactionType(String(value));
           mapped[field] = normalized || String(value).toLowerCase().trim();
           break;
+        case "split_amount":
+        case "contribute_to_goal":
+          // Parse as numbers
+          mapped[field] = parseFloat(String(value));
+          break;
         case "account_id":
         case "from_account":
         case "to_account":
+          // Keep account names as-is (exact match case-insensitive in validation)
+          mapped[field] = String(value).trim();
+          break;
         case "category":
         case "goal_name":
           // Normalize field names (spaces to underscores)
