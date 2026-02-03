@@ -10,6 +10,7 @@ export type HeaderField =
   | "notes"
   | "goal_name"
   | "deduction_type"
+  | "split_amount"
   | "frequency"
   | "skip";
 

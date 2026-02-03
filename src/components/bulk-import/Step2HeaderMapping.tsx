@@ -34,6 +34,7 @@ const AVAILABLE_FIELDS: { value: HeaderField; label: string }[] = [
   { value: "notes", label: "Notes" },
   { value: "goal_name", label: "Goal Name" },
   { value: "deduction_type", label: "Deduction Type (full/split)" },
+  { value: "split_amount", label: "Split Amount (for split deductions)" },
   { value: "frequency", label: "Frequency" },
 ];
 

@@ -63,6 +63,16 @@ export function validateRow(
         message: `Amount must be a positive number, got: ${amountValue}`,
         rowValue: amountValue,
       });
+    } else {
+      // Check decimal places (max 2)
+      const decimalPlaces = String(amountValue).split('.')[1]?.length || 0;
+      if (decimalPlaces > 2) {
+        errors.push({
+          field: "amount",
+          message: `Amount can have maximum 2 decimal places, got: ${decimalPlaces}. Value: ${amountValue}`,
+          rowValue: amountValue,
+        });
+      }
     }
   } else {
     errors.push({
@@ -217,15 +227,64 @@ export function validateRow(
     }
   }
 
-  // Validate frequency (optional)
+  // Validate frequency (optional, case-insensitive exact match)
   if (mappedValues.frequency !== undefined && mappedValues.frequency !== "") {
     const frequency = String(mappedValues.frequency).trim().toLowerCase();
-    if (!["none", "daily", "weekly", "monthly", "yearly"].includes(frequency)) {
+    if (!["daily", "weekly", "monthly", "yearly"].includes(frequency)) {
       errors.push({
         field: "frequency",
-        message: `Invalid frequency: ${frequency}. Must be: none, daily, weekly, monthly, or yearly`,
+        message: `Invalid frequency: "${frequency}". Must be exactly: daily, weekly, monthly, or yearly (case-insensitive)`,
         rowValue: frequency,
       });
+    }
+  }
+
+  // Validate goal_name and deduction_type relationship
+  if (mappedValues.deduction_type && !mappedValues.goal_name) {
+    errors.push({
+      field: "deduction_type",
+      message: "Deduction type cannot be present without a goal name",
+      rowValue: mappedValues.deduction_type,
+    });
+  }
+
+  if (mappedValues.goal_name && !mappedValues.deduction_type) {
+    errors.push({
+      field: "goal_name",
+      message: "Goal name cannot be present without a deduction type",
+      rowValue: mappedValues.goal_name,
+    });
+  }
+
+  if (mappedValues.goal_name && mappedValues.deduction_type) {
+    const deductionType = String(mappedValues.deduction_type).trim().toLowerCase();
+    // If split type, validate split_amount
+    if (deductionType === "split") {
+      if (mappedValues.split_amount !== undefined && mappedValues.split_amount !== "") {
+        const splitAmount = parseFloat(String(mappedValues.split_amount));
+        if (isNaN(splitAmount) || splitAmount <= 0) {
+          errors.push({
+            field: "split_amount",
+            message: `Split amount must be a positive number, got: ${mappedValues.split_amount}`,
+            rowValue: mappedValues.split_amount,
+          });
+        } else {
+          // Check decimal places
+          const decimalPlaces = String(mappedValues.split_amount).split('.')[1]?.length || 0;
+          if (decimalPlaces > 2) {
+            errors.push({
+              field: "split_amount",
+              message: `Split amount can have maximum 2 decimal places, got: ${decimalPlaces}. Value: ${mappedValues.split_amount}`,
+              rowValue: mappedValues.split_amount,
+            });
+          }
+        }
+      } else {
+        errors.push({
+          field: "split_amount",
+          message: "Split amount is required when deduction type is 'split'",
+        });
+      }
     }
   }
 

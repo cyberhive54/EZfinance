@@ -21,7 +21,8 @@ export async function importBulkTransactions(
   selectedRowIndices: Set<number>,
   accounts: Account[],
   categories: any[],
-  goals: Goal[]
+  goals: Goal[],
+  onProgress?: (progress: number) => void
 ): Promise<ImportResult> {
   const errors: { rowIndex: number; message: string }[] = [];
   let successfulImports = 0;
@@ -59,7 +60,8 @@ export async function importBulkTransactions(
     });
 
     // Import valid rows
-    for (const item of validatedRows) {
+    for (let i = 0; i < validatedRows.length; i++) {
+      const item = validatedRows[i];
       try {
         const mappedData = item.mappedData;
         const transactionType = mappedData.type as
@@ -93,6 +95,12 @@ export async function importBulkTransactions(
           rowIndex: item.rowIndex + 1,
           message: `Failed to import: ${err instanceof Error ? err.message : "Unknown error"}`,
         });
+      }
+
+      // Update progress
+      if (onProgress) {
+        const progress = Math.round(((i + 1) / validatedRows.length) * 100);
+        onProgress(progress);
       }
     }
 
@@ -155,9 +163,11 @@ async function importRegularTransaction(
       throw new Error(`Goal ${mappedData.goal_name} not found`);
     }
     // Calculate goal amount based on deduction type
-    goalAmount = mappedData.amount; // Default to full amount
-    if (mappedData.deduction_type === "split") {
-      goalAmount = mappedData.amount / 2; // For split, use half
+    if (mappedData.deduction_type === "full") {
+      goalAmount = mappedData.amount; // Full amount for full type
+    } else if (mappedData.deduction_type === "split") {
+      // For split, use split_amount if provided, otherwise use half the amount
+      goalAmount = mappedData.split_amount ? parseFloat(String(mappedData.split_amount)) : mappedData.amount / 2;
     }
   }
 

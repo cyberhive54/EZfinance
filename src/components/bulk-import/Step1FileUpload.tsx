@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Upload, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
+import { Upload, AlertCircle, CheckCircle2, ChevronDown, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,8 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
   const [parsedData, setParsedData] = useState<{ headers: string[]; rows: ParsedCSVRow[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [copiedRuleIndex, setCopiedRuleIndex] = useState<number | null>(null);
+  const [copiedSampleIndex, setCopiedSampleIndex] = useState<number | null>(null);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -105,6 +107,18 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
   const handleContinue = () => {
     if (!parsedData) return;
     onFileLoaded(parsedData.rows, parsedData.headers);
+  };
+
+  const copyToClipboard = (text: string, type: "rule" | "sample", index: number) => {
+    navigator.clipboard.writeText(text).then(() => {
+      if (type === "rule") {
+        setCopiedRuleIndex(index);
+        setTimeout(() => setCopiedRuleIndex(null), 2000);
+      } else {
+        setCopiedSampleIndex(index);
+        setTimeout(() => setCopiedSampleIndex(null), 2000);
+      }
+    });
   };
 
   // Success state - show parsed data and continue button
@@ -234,38 +248,60 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-4 mt-4 pt-4 border-t">
           {/* Required Fields */}
-          <div>
-            <h4 className="font-semibold text-sm mb-2">Required Fields</h4>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="font-semibold text-sm">Required Fields</h4>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => copyToClipboard(`date,type,amount,account_id`, "rule", 0)}
+                className="h-6 gap-1"
+              >
+                {copiedRuleIndex === 0 ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
+                <span className="text-xs">Copy</span>
+              </Button>
+            </div>
             <ul className="text-sm space-y-1 ml-4 list-disc text-muted-foreground">
               <li><span className="font-mono">date</span> - YYYY-MM-DD, YYYY/MM/DD, DD-MM-YYYY, or DD/MM/YYYY</li>
               <li><span className="font-mono">type</span> - expense, income, or transfer (case-insensitive)</li>
-              <li><span className="font-mono">amount</span> - Positive number (supports decimals)</li>
-              <li><span className="font-mono">account_id</span> - Account name (spaces → underscores, case-insensitive)</li>
+              <li><span className="font-mono">amount</span> - Positive number (max 2 decimal places)</li>
+              <li><span className="font-mono">account_id</span> - Account name or ID (for income/expense; for transfers use from_account/to_account)</li>
             </ul>
           </div>
 
           {/* Optional Fields */}
-          <div>
-            <h4 className="font-semibold text-sm mb-2">Optional Fields</h4>
+          <div className="space-y-2">
+            <h4 className="font-semibold text-sm">Optional Fields</h4>
             <ul className="text-sm space-y-1 ml-4 list-disc text-muted-foreground">
-              <li><span className="font-mono">category</span> - Must match system categories</li>
+              <li><span className="font-mono">category</span> - Must match system categories (only for income/expense)</li>
               <li><span className="font-mono">description</span> - Any text</li>
               <li><span className="font-mono">notes</span> - Any text</li>
-              <li><span className="font-mono">goal_name</span> - Must exist in system (spaces → underscores)</li>
-              <li><span className="font-mono">deduction_type</span> - full or split (only with goal_name)</li>
-              <li><span className="font-mono">frequency</span> - none, daily, weekly, monthly, yearly</li>
+              <li><span className="font-mono">goal_name</span> - Must exist in system (cannot exist without deduction_type)</li>
+              <li><span className="font-mono">deduction_type</span> - full or split (requires goal_name; if split, also provide split_amount)</li>
+              <li><span className="font-mono">split_amount</span> - Amount to allocate to goal (only with deduction_type=split)</li>
+              <li><span className="font-mono">from_account</span> - For transfers (case-insensitive, spaces → underscores)</li>
+              <li><span className="font-mono">to_account</span> - For transfers (case-insensitive, spaces → underscores)</li>
+              <li><span className="font-mono">frequency</span> - daily, weekly, monthly, or yearly (case-insensitive, exact match)</li>
             </ul>
           </div>
 
           {/* Constraints */}
-          <div>
-            <h4 className="font-semibold text-sm mb-2">Constraints</h4>
+          <div className="space-y-2">
+            <h4 className="font-semibold text-sm">Constraints & Validation Rules</h4>
             <ul className="text-sm space-y-1 ml-4 list-disc text-muted-foreground">
               <li>Max 500 rows per import</li>
               <li>Max 5MB file size</li>
               <li>Dates cannot be in the future</li>
-              <li>Amounts must be positive</li>
-              <li>Account/goal/category names with spaces will be converted (e.g., "My Account" → "my_account")</li>
+              <li>Amounts must be positive with max 2 decimal places</li>
+              <li>Transfer type requires both from_account and to_account (cannot be the same)</li>
+              <li>Goal deductions: goal_name requires deduction_type; deduction_type requires goal_name</li>
+              <li>Split deductions should include split_amount for allocation amount</li>
+              <li>Account/goal/category names with spaces will be normalized (e.g., "My Account" → "my_account")</li>
+              <li>Frequency values must be exact: daily, weekly, monthly, or yearly (case-insensitive)</li>
             </ul>
           </div>
         </CollapsibleContent>
@@ -278,6 +314,37 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
           Example CSV Formats
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-4 mt-4 pt-4 border-t">
+          {/* Full Sample with All Fields */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="font-semibold text-xs text-blue-700">Complete Sample CSV (All Fields)</h4>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => copyToClipboard(`date,account_id,type,category,amount,description,notes,goal_name,deduction_type,split_amount,from_account,to_account,frequency
+2024-01-15,Checking,expense,groceries,45.50,Weekly groceries,Primary account,,,,,daily
+2024-01-16,Savings,income,Salary,5000.00,Monthly salary,Direct deposit,Emergency Fund,full,5000.00,,
+2024-01-17,Checking,expense,utilities,120.00,Electric bill,Monthly payment,Vacation,split,50.00
+2024-01-18,Checking,transfer,,,Transfer between accounts,,Checking,Savings,500.00,Checking,Savings`, "sample", 0)}
+                className="h-6 gap-1"
+              >
+                {copiedSampleIndex === 0 ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
+                <span className="text-xs">Copy</span>
+              </Button>
+            </div>
+            <div className="bg-blue-50/50 border border-blue-200 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre max-h-32">
+{`date,account_id,type,category,amount,description,notes,goal_name,deduction_type,split_amount,from_account,to_account,frequency
+2024-01-15,Checking,expense,groceries,45.50,Weekly groceries,Primary account,,,,,daily
+2024-01-16,Savings,income,Salary,5000.00,Monthly salary,Direct deposit,Emergency Fund,full,5000.00,,
+2024-01-17,Checking,expense,utilities,120.00,Electric bill,Monthly payment,Vacation,split,50.00
+2024-01-18,Checking,transfer,,,Transfer between accounts,,Checking,Savings,500.00,Checking,Savings`}
+            </div>
+          </div>
+
           {/* Example 1 - Simple Expense */}
           <div>
             <h4 className="font-semibold text-xs mb-2 text-green-700">✓ Correct: Simple Expense</h4>

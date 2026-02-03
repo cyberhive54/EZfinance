@@ -48,7 +48,7 @@ export default function BulkImport() {
     setSelectedRows(rowIndices);
   };
 
-  const handleImport = async (data: ParsedCSVRow[], rows: Set<number>) => {
+  const handleImport = async (data: ParsedCSVRow[], rows: Set<number>, onProgress?: (progress: number) => void) => {
     if (!user) return;
 
     setIsImporting(true);
@@ -60,7 +60,8 @@ export default function BulkImport() {
         rows,
         accounts || [],
         categories || [],
-        goals || []
+        goals || [],
+        onProgress
       );
       setImportResult(result);
     } catch (err) {
