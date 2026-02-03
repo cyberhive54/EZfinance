@@ -4,8 +4,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { ParsedCSVRow, HeaderMapping, HeaderField } from "@/types/bulkImport";
-import HeaderMappingDropdown from "./HeaderMappingDropdown";
 import { validateMappingCompleteness } from "@/utils/csvValidator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Step2HeaderMappingProps {
   csvData: ParsedCSVRow[];
@@ -14,6 +20,22 @@ interface Step2HeaderMappingProps {
   selectedRows: Set<number>;
   onRowsSelected: (rowIndices: Set<number>) => void;
 }
+
+const AVAILABLE_FIELDS: { value: HeaderField; label: string }[] = [
+  { value: "skip", label: "Skip" },
+  { value: "date", label: "Date" },
+  { value: "account_id", label: "Account" },
+  { value: "from_account", label: "From Account (Transfer)" },
+  { value: "to_account", label: "To Account (Transfer)" },
+  { value: "type", label: "Type" },
+  { value: "category", label: "Category" },
+  { value: "amount", label: "Amount" },
+  { value: "description", label: "Description" },
+  { value: "notes", label: "Notes" },
+  { value: "goal_name", label: "Goal Name" },
+  { value: "deduction_type", label: "Deduction Type (full/split)" },
+  { value: "frequency", label: "Frequency" },
+];
 
 export default function Step2HeaderMapping({
   csvData,
@@ -56,6 +78,18 @@ export default function Step2HeaderMapping({
   if (Object.keys(headerMapping).length === 0) {
     initializeMapping();
   }
+
+  // Get used fields to exclude from other dropdowns
+  const usedFields = new Set(
+    Object.values(headerMapping).filter((f) => f !== "skip")
+  );
+
+  // Get available options for each dropdown
+  const getAvailableOptions = (currentField: HeaderField) => {
+    return AVAILABLE_FIELDS.filter(
+      (f) => f.value === "skip" || f.value === currentField || !usedFields.has(f.value)
+    );
+  };
 
   const handleMappingChange = (csvHeader: string, field: HeaderField) => {
     setHeaderMapping((prev) => ({
@@ -101,18 +135,9 @@ export default function Step2HeaderMapping({
     onMappingComplete(headerMapping);
   };
 
-  const selectedCount = selectedRows.size;
-
   return (
-    <div className="space-y-4">
-      {/* Instructions */}
-      <div className="bg-muted/50 p-4 rounded-lg">
-        <p className="text-sm">
-          Map your CSV columns to transaction fields. Columns marked as <strong>"Skip"</strong> will be ignored.
-          Optional fields can be left unmapped.
-        </p>
-      </div>
-
+    <div className="space-y-6">
+      {/* Error Alert */}
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -120,90 +145,90 @@ export default function Step2HeaderMapping({
         </Alert>
       )}
 
-      {/* Header Mapping Table */}
-      <div className="border rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted border-b">
-              <tr>
-                <th className="px-4 py-3 text-left font-semibold">CSV Column</th>
-                <th className="px-4 py-3 text-left font-semibold">Map to Field</th>
-                <th className="px-4 py-3 text-left font-semibold">Sample Data</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {originalHeaders.map((header, idx) => (
-                <tr key={header} className="hover:bg-muted/50 transition-colors">
-                  <td className="px-4 py-3 font-medium">{header}</td>
-                  <td className="px-4 py-3">
-                    <HeaderMappingDropdown
-                      value={headerMapping[header] || "skip"}
-                      onChange={(field) => handleMappingChange(header, field)}
-                    />
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs font-mono max-w-[200px] truncate">
-                    {csvData[0]?.[header] ? String(csvData[0][header]).substring(0, 50) : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Mapping Section */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold mb-1">Map CSV Columns</h2>
+          <p className="text-sm text-muted-foreground">
+            Select which field each CSV column represents. Skip by default. Once selected, that field won't appear in other columns.
+          </p>
+        </div>
+
+        {/* Vertical Mapping Table */}
+        <div className="space-y-3 max-h-96 overflow-y-auto border rounded-lg p-4 bg-muted/30">
+          {originalHeaders.map((header) => (
+            <div key={header} className="flex flex-col sm:flex-row sm:items-center gap-2 pb-3 border-b last:border-b-0">
+              <div className="flex-1 min-w-0">
+                <p className="font-mono text-sm font-medium truncate">{header}</p>
+                <p className="text-xs text-muted-foreground">CSV Column</p>
+              </div>
+              <div className="w-full sm:w-48">
+                <Select
+                  value={headerMapping[header] || "skip"}
+                  onValueChange={(value) => handleMappingChange(header, value as HeaderField)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getAvailableOptions(headerMapping[header] || "skip").map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Row Selection */}
-      <div className="border rounded-lg p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Checkbox
-              checked={selectAllChecked}
-              onCheckedChange={(checked) => handleSelectAllChange(checked as boolean)}
-              id="select-all"
-            />
-            <label htmlFor="select-all" className="cursor-pointer flex items-center gap-2">
-              <span className="font-semibold">Select All</span>
-              <span className="text-muted-foreground text-sm">
-                ({selectedCount} of {csvData.length} rows selected)
-              </span>
-            </label>
-          </div>
+      {/* Row Selection Section */}
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold mb-2">Select Rows to Import</h3>
+          <p className="text-xs text-muted-foreground mb-3">
+            {selectedRows.size} of {csvData.length} rows selected
+          </p>
         </div>
 
-        {/* Virtual Scrolled Row List */}
-        <div className="max-h-96 overflow-y-auto border rounded">
-          <div className="space-y-0">
-            {csvData.map((row, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-3 px-4 py-3 border-b last:border-b-0 hover:bg-muted/50 transition-colors"
+        {/* Select All */}
+        <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg border">
+          <Checkbox
+            id="select-all"
+            checked={selectAllChecked}
+            onCheckedChange={handleSelectAllChange}
+          />
+          <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+            Select All Rows
+          </label>
+        </div>
+
+        {/* Row Preview (scrollable) */}
+        <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-muted/30">
+          {csvData.map((row, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <Checkbox
+                id={`row-${idx}`}
+                checked={selectedRows.has(idx)}
+                onCheckedChange={(checked) => handleRowCheckChange(idx, checked as boolean)}
+              />
+              <label
+                htmlFor={`row-${idx}`}
+                className="text-xs flex-1 truncate cursor-pointer text-muted-foreground"
               >
-                <Checkbox
-                  checked={selectedRows.has(idx)}
-                  onCheckedChange={(checked) => handleRowCheckChange(idx, checked as boolean)}
-                  id={`row-${idx}`}
-                />
-                <label htmlFor={`row-${idx}`} className="flex-1 cursor-pointer text-sm">
-                  <span className="text-muted-foreground">Row {idx + 1}:</span>{" "}
-                  <span className="font-medium">
-                    {originalHeaders
-                      .slice(0, 3)
-                      .map((h) => `${String(row[h] || "").substring(0, 15)}`)
-                      .join(" | ")}
-                    {originalHeaders.length > 3 && "..."}
-                  </span>
-                </label>
-              </div>
-            ))}
-          </div>
+                Row {idx + 1}: {Object.values(row).slice(0, 3).join(" | ")}
+              </label>
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Continue Button */}
-      <div className="flex justify-end gap-2 pt-4">
-        <Button onClick={handleContinue} size="lg">
-          Continue to Review
-        </Button>
-      </div>
+      <Button onClick={handleContinue} className="w-full" size="lg">
+        Continue to Review
+      </Button>
     </div>
   );
 }

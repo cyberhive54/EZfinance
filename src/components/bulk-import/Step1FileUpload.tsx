@@ -1,7 +1,8 @@
 import { useState, useRef } from "react";
-import { Upload, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Upload, AlertCircle, CheckCircle2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -16,13 +17,17 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [pastedCSV, setPastedCSV] = useState<string>("");
-  const [parsedDataPreview, setParsedDataPreview] = useState<{ headers: string[]; rows: number } | null>(null);
+  const [parsedData, setParsedData] = useState<{ headers: string[]; rows: ParsedCSVRow[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragActive, setDragActive] = useState(false);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    await processFile(file);
+  };
 
+  const processFile = async (file: File) => {
     setError("");
     setIsLoading(true);
 
@@ -46,13 +51,11 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
         return;
       }
 
-      // Show preview
-      setParsedDataPreview({
+      // Store parsed data
+      setParsedData({
         headers: result.headers,
-        rows: result.data.length,
+        rows: result.data,
       });
-
-      // On confirm, call parent
       setIsLoading(false);
     } catch (err) {
       setError(`Failed to process file: ${err instanceof Error ? err.message : "Unknown error"}`);
@@ -74,44 +77,94 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
       return;
     }
 
-    // Show preview
-    setParsedDataPreview({
+    // Store parsed data
+    setParsedData({
       headers: result.headers,
-      rows: result.data.length,
+      rows: result.data,
     });
   };
 
-  const handleConfirm = () => {
-    if (!parsedDataPreview) return;
-
-    // Get CSV text for parsing
-    let csvText = pastedCSV;
-    if (fileInputRef.current?.files?.[0]) {
-      readFileAsText(fileInputRef.current.files[0]).then((text) => {
-        const result = parseCSV(text);
-        onFileLoaded(result.data, result.headers);
-      });
-      return;
-    }
-
-    const result = parseCSV(csvText);
-    onFileLoaded(result.data, result.headers);
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(true);
   };
+
+  const handleDragLeave = () => {
+    setDragActive(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      await processFile(file);
+    }
+  };
+
+  const handleContinue = () => {
+    if (!parsedData) return;
+    onFileLoaded(parsedData.rows, parsedData.headers);
+  };
+
+  // Success state - show parsed data and continue button
+  if (parsedData) {
+    return (
+      <div className="space-y-4">
+        <Card className="border-green-500/30 bg-green-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-green-700">
+              <CheckCircle2 className="h-5 w-5" />
+              CSV Loaded Successfully
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground">Columns Found</p>
+                <p className="text-2xl font-bold text-green-600">{parsedData.headers.length}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Rows Found</p>
+                <p className="text-2xl font-bold text-green-600">{parsedData.rows.length}</p>
+              </div>
+            </div>
+            <div className="bg-muted/50 p-3 rounded text-xs max-h-24 overflow-y-auto">
+              <p className="font-mono text-foreground/80">
+                {parsedData.headers.join(" | ")}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Button
+          onClick={handleContinue}
+          size="lg"
+          className="w-full"
+        >
+          Continue to Mapping
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={() => {
+            setParsedData(null);
+            setPastedCSV("");
+            setError("");
+            if (fileInputRef.current) {
+              fileInputRef.current.value = "";
+            }
+          }}
+          className="w-full"
+        >
+          Load Different File
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Instructions */}
-      <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-        <h3 className="font-semibold">File Requirements</h3>
-        <ul className="text-sm text-muted-foreground space-y-1">
-          <li>• File format: CSV (.csv)</li>
-          <li>• Maximum file size: 5MB</li>
-          <li>• Maximum rows: 500 transactions</li>
-          <li>• First row must contain column headers</li>
-          <li>• Supports both comma and semicolon delimiters</li>
-        </ul>
-      </div>
-
       {/* Error Alert */}
       {error && (
         <Alert variant="destructive">
@@ -120,248 +173,172 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
         </Alert>
       )}
 
-      {/* File Input Tabs */}
-      <Tabs defaultValue="file" className="w-full">
+      {/* File Upload Tabs */}
+      <Tabs defaultValue="upload" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="file">Upload File</TabsTrigger>
+          <TabsTrigger value="upload">Upload File</TabsTrigger>
           <TabsTrigger value="paste">Paste CSV Data</TabsTrigger>
         </TabsList>
 
-        {/* File Upload Tab */}
-        <TabsContent value="file" className="space-y-4">
+        {/* Upload Tab */}
+        <TabsContent value="upload" className="space-y-4 mt-4">
           <div
-            className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              dragActive
+                ? "border-primary bg-primary/5"
+                : "border-muted-foreground/30 bg-muted/30"
+            } cursor-pointer`}
             onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.currentTarget.classList.add("border-primary");
-            }}
-            onDragLeave={(e) => {
-              e.currentTarget.classList.remove("border-primary");
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              e.currentTarget.classList.remove("border-primary");
-              if (e.dataTransfer.files?.[0]) {
-                handleFileSelect({
-                  target: { files: e.dataTransfer.files } as any,
-                } as React.ChangeEvent<HTMLInputElement>);
-              }
-            }}
           >
-            <Upload className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
-            <p className="font-semibold">Drag and drop your CSV file here</p>
-            <p className="text-sm text-muted-foreground mt-1">or click to browse</p>
+            <Upload className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+            <p className="text-lg font-semibold mb-1">Drag and drop your CSV file here</p>
+            <p className="text-sm text-muted-foreground">or click to browse</p>
+            <p className="text-xs text-muted-foreground mt-2">Max 5MB • Max 500 rows</p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              onChange={handleFileSelect}
+              disabled={isLoading}
+              className="hidden"
+            />
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
         </TabsContent>
 
-        {/* Paste CSV Tab */}
-        <TabsContent value="paste" className="space-y-4">
+        {/* Paste Tab */}
+        <TabsContent value="paste" className="space-y-4 mt-4">
           <Textarea
-            placeholder="Paste your CSV data here. First row should contain headers."
+            placeholder="Paste your CSV data here&#10;Example: date,account,type,amount&#10;2024-01-15,Checking,expense,50.00"
             value={pastedCSV}
-            onChange={(e) => {
-              setPastedCSV(e.target.value);
-              setError("");
-            }}
-            rows={8}
-            className="font-mono text-sm"
+            onChange={(e) => setPastedCSV(e.target.value)}
+            className="min-h-48 font-mono text-sm"
           />
-          <Button onClick={handlePastedCSV} disabled={!pastedCSV.trim()} className="w-full">
-            Parse CSV Data
+          <Button
+            onClick={handlePastedCSV}
+            disabled={isLoading || !pastedCSV.trim()}
+            className="w-full"
+          >
+            {isLoading ? "Parsing..." : "Parse CSV"}
           </Button>
         </TabsContent>
       </Tabs>
 
-      {/* Preview */}
-      {parsedDataPreview && (
-        <Alert className="border-green-500/30 bg-green-500/5">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-700">
-            CSV loaded successfully! <strong>{parsedDataPreview.rows}</strong> rows found with{" "}
-            <strong>{parsedDataPreview.headers.length}</strong> columns.
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* Validation Rules Section */}
+      <Collapsible defaultOpen className="border rounded-lg p-4">
+        <CollapsibleTrigger className="flex items-center gap-2 font-semibold text-sm hover:bg-muted/30 p-1 rounded w-full">
+          <ChevronDown className="h-4 w-4" />
+          Validation Rules & Format Requirements
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-4 mt-4 pt-4 border-t">
+          {/* Required Fields */}
+          <div>
+            <h4 className="font-semibold text-sm mb-2">Required Fields</h4>
+            <ul className="text-sm space-y-1 ml-4 list-disc text-muted-foreground">
+              <li><span className="font-mono">date</span> - YYYY-MM-DD, YYYY/MM/DD, DD-MM-YYYY, or DD/MM/YYYY</li>
+              <li><span className="font-mono">type</span> - expense, income, or transfer (case-insensitive)</li>
+              <li><span className="font-mono">amount</span> - Positive number (supports decimals)</li>
+              <li><span className="font-mono">account_id</span> - Account name (spaces → underscores, case-insensitive)</li>
+            </ul>
+          </div>
+
+          {/* Optional Fields */}
+          <div>
+            <h4 className="font-semibold text-sm mb-2">Optional Fields</h4>
+            <ul className="text-sm space-y-1 ml-4 list-disc text-muted-foreground">
+              <li><span className="font-mono">category</span> - Must match system categories</li>
+              <li><span className="font-mono">description</span> - Any text</li>
+              <li><span className="font-mono">notes</span> - Any text</li>
+              <li><span className="font-mono">goal_name</span> - Must exist in system (spaces → underscores)</li>
+              <li><span className="font-mono">deduction_type</span> - full or split (only with goal_name)</li>
+              <li><span className="font-mono">frequency</span> - none, daily, weekly, monthly, yearly</li>
+            </ul>
+          </div>
+
+          {/* Constraints */}
+          <div>
+            <h4 className="font-semibold text-sm mb-2">Constraints</h4>
+            <ul className="text-sm space-y-1 ml-4 list-disc text-muted-foreground">
+              <li>Max 500 rows per import</li>
+              <li>Max 5MB file size</li>
+              <li>Dates cannot be in the future</li>
+              <li>Amounts must be positive</li>
+              <li>Account/goal/category names with spaces will be converted (e.g., "My Account" → "my_account")</li>
+            </ul>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Example Formats */}
-      <ExampleFormats />
-
-      {/* Validation Rules */}
-      <ValidationRules />
-
-      {/* Confirm Button */}
-      {parsedDataPreview && (
-        <Button onClick={handleConfirm} size="lg" className="w-full">
-          Continue to Mapping
-        </Button>
-      )}
-    </div>
-  );
-}
-
-function ExampleFormats() {
-  const [openExample, setOpenExample] = useState<string>("");
-
-  return (
-    <div className="space-y-3 border-t pt-6">
-      <h3 className="font-semibold">Example CSV Formats</h3>
-
-      {/* Example 1: Simple Expense */}
-      <Collapsible open={openExample === "simple"} onOpenChange={(open) => setOpenExample(open ? "simple" : "")}>
-        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-muted transition-colors">
-          <div className="text-left">
-            <p className="font-medium text-sm">Example 1: Simple Expense Transactions</p>
-            <p className="text-xs text-muted-foreground">Basic income and expense entries</p>
-          </div>
-          <div className="text-xs bg-green-500/10 text-green-600 px-2 py-1 rounded">Correct</div>
+      <Collapsible className="border rounded-lg p-4">
+        <CollapsibleTrigger className="flex items-center gap-2 font-semibold text-sm hover:bg-muted/30 p-1 rounded w-full">
+          <ChevronDown className="h-4 w-4" />
+          Example CSV Formats
         </CollapsibleTrigger>
-        <CollapsibleContent className="p-3 bg-muted/50 rounded-b-lg border border-t-0">
-          <pre className="text-xs overflow-x-auto p-2 bg-background rounded border">
+        <CollapsibleContent className="space-y-4 mt-4 pt-4 border-t">
+          {/* Example 1 - Simple Expense */}
+          <div>
+            <h4 className="font-semibold text-xs mb-2 text-green-700">✓ Correct: Simple Expense</h4>
+            <div className="bg-green-50/50 border border-green-200 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
 {`date,account_id,type,category,amount,description
-2025-02-03,ACC-001,expense,groceries,45.50,Weekly shopping
-2025-02-04,ACC-001,expense,utilities,120.00,Electricity bill
-2025-02-05,ACC-002,income,salary,5000.00,Monthly salary`}
-          </pre>
-        </CollapsibleContent>
-      </Collapsible>
-
-      {/* Example 2: With Goal Deduction */}
-      <Collapsible open={openExample === "goals"} onOpenChange={(open) => setOpenExample(open ? "goals" : "")}>
-        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-muted transition-colors">
-          <div className="text-left">
-            <p className="font-medium text-sm">Example 2: With Goal Deductions</p>
-            <p className="text-xs text-muted-foreground">Expenses linked to savings goals</p>
+2024-01-15,Checking,expense,groceries,45.50,Weekly groceries
+2024-01-16,Checking,EXPENSE,utilities,120.00,Electricity bill`}
+            </div>
           </div>
-          <div className="text-xs bg-green-500/10 text-green-600 px-2 py-1 rounded">Correct</div>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="p-3 bg-muted/50 rounded-b-lg border border-t-0">
-          <pre className="text-xs overflow-x-auto p-2 bg-background rounded border">
-{`date,account_id,type,category,amount,description,goal_name,deduction_type
-2025-02-03,ACC-001,expense,savings,100.00,Savings deposit,Emergency Fund,full
-2025-02-04,ACC-001,expense,savings,50.00,Partial savings,Vacation,split`}
-          </pre>
-        </CollapsibleContent>
-      </Collapsible>
 
-      {/* Example 3: Transfer Transactions */}
-      <Collapsible open={openExample === "transfer"} onOpenChange={(open) => setOpenExample(open ? "transfer" : "")}>
-        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-muted transition-colors">
-          <div className="text-left">
-            <p className="font-medium text-sm">Example 3: Transfer Transactions</p>
-            <p className="text-xs text-muted-foreground">Transfers between accounts (provide both sender & receiver rows)</p>
+          {/* Example 2 - With Goal Deduction */}
+          <div>
+            <h4 className="font-semibold text-xs mb-2 text-green-700">✓ Correct: With Goal Deduction</h4>
+            <div className="bg-green-50/50 border border-green-200 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
+{`date,account_id,type,amount,goal_name,deduction_type
+2024-01-15,Savings,expense,100.00,Emergency Fund,full
+2024-01-16,Savings,expense,50.00,Vacation Fund,split`}
+            </div>
           </div>
-          <div className="text-xs bg-green-500/10 text-green-600 px-2 py-1 rounded">Correct</div>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="p-3 bg-muted/50 rounded-b-lg border border-t-0">
-          <pre className="text-xs overflow-x-auto p-2 bg-background rounded border">
-{`date,from_account,to_account,type,amount,description
-2025-02-03,ACC-001,ACC-002,transfer-sender,500.00,Move to savings
-2025-02-03,ACC-002,ACC-001,transfer-receiver,500.00,Move to savings`}
-          </pre>
-        </CollapsibleContent>
-      </Collapsible>
 
-      {/* Example 4: Missing Required Field (WRONG) */}
-      <Collapsible open={openExample === "wrong1"} onOpenChange={(open) => setOpenExample(open ? "wrong1" : "")}>
-        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-muted transition-colors">
-          <div className="text-left">
-            <p className="font-medium text-sm">Example 4: Missing Required Fields</p>
-            <p className="text-xs text-muted-foreground">Missing type and category columns</p>
+          {/* Example 3 - Transfer */}
+          <div>
+            <h4 className="font-semibold text-xs mb-2 text-green-700">✓ Correct: Transfer (2 rows)</h4>
+            <div className="bg-green-50/50 border border-green-200 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
+{`date,from_account,to_account,amount,type,description
+2024-01-15,Checking,Savings,500.00,transfer-sender,Move to savings
+2024-01-15,Checking,Savings,500.00,transfer-receiver,Move to savings`}
+            </div>
           </div>
-          <div className="text-xs bg-red-500/10 text-red-600 px-2 py-1 rounded">Wrong</div>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="p-3 bg-muted/50 rounded-b-lg border border-t-0">
-          <pre className="text-xs overflow-x-auto p-2 bg-background rounded border">
-{`date,account_id,amount,description
-2025-02-03,ACC-001,45.50,Weekly shopping
-❌ Missing: type, category
-✓ Will fail validation`}
-          </pre>
-        </CollapsibleContent>
-      </Collapsible>
 
-      {/* Example 5: Invalid Data */}
-      <Collapsible open={openExample === "wrong2"} onOpenChange={(open) => setOpenExample(open ? "wrong2" : "")}>
-        <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-muted transition-colors">
-          <div className="text-left">
-            <p className="font-medium text-sm">Example 5: Invalid Data Values</p>
-            <p className="text-xs text-muted-foreground">Bad date format, non-numeric amount</p>
+          {/* Example 4 - Wrong */}
+          <div>
+            <h4 className="font-semibold text-xs mb-2 text-red-700">✗ Wrong: Missing Required Fields</h4>
+            <div className="bg-red-50/50 border border-red-200 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
+{`date,account,amount
+2024-01-15,Checking,50
+❌ Missing: type and category`}
+            </div>
           </div>
-          <div className="text-xs bg-red-500/10 text-red-600 px-2 py-1 rounded">Wrong</div>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="p-3 bg-muted/50 rounded-b-lg border border-t-0">
-          <pre className="text-xs overflow-x-auto p-2 bg-background rounded border">
-{`date,account_id,type,category,amount,description
-02/03/2025,ACC-001,expense,groceries,abc,Shopping
-❌ Date should be: 2025-02-03 (YYYY-MM-DD)
-❌ Amount should be numeric: 45.50`}
-          </pre>
+
+          {/* Example 5 - Wrong */}
+          <div>
+            <h4 className="font-semibold text-xs mb-2 text-red-700">✗ Wrong: Invalid Data</h4>
+            <div className="bg-red-50/50 border border-red-200 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
+{`date,account_id,type,category,amount
+2024-02-03,Checking,expense,groceries,abc
+❌ Invalid amount: "abc" (must be numeric)`}
+            </div>
+          </div>
+
+          {/* Example 6 - Multiple word type */}
+          <div>
+            <h4 className="font-semibold text-xs mb-2 text-green-700">✓ Correct: Multi-word Types Auto-converted</h4>
+            <div className="bg-green-50/50 border border-green-200 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
+{`date,from_account,to_account,amount,type
+2024-01-15,My Checking,My Savings,500,Bank Transfer
+→ Converts to: from_account=my_checking, to_account=my_savings, type=transfer-sender`}
+            </div>
+          </div>
         </CollapsibleContent>
       </Collapsible>
-    </div>
-  );
-}
-
-function ValidationRules() {
-  return (
-    <div className="border-t pt-6 space-y-3">
-      <h3 className="font-semibold">Validation Rules & Requirements</h3>
-
-      <div className="grid md:grid-cols-2 gap-4 text-sm">
-        <div>
-          <p className="font-medium mb-2">Required Fields:</p>
-          <ul className="space-y-1 text-muted-foreground">
-            <li>• <strong>date</strong> - YYYY-MM-DD format</li>
-            <li>• <strong>type</strong> - expense, income, or transfer</li>
-            <li>• <strong>amount</strong> - Positive number</li>
-            <li>• <strong>account_id</strong> - For income/expense only</li>
-          </ul>
-        </div>
-
-        <div>
-          <p className="font-medium mb-2">Optional Fields:</p>
-          <ul className="space-y-1 text-muted-foreground">
-            <li>• <strong>category</strong> - Must match system categories</li>
-            <li>• <strong>description</strong> - Any text</li>
-            <li>• <strong>notes</strong> - Additional notes</li>
-            <li>• <strong>goal_name</strong> - Must exist in system</li>
-          </ul>
-        </div>
-
-        <div>
-          <p className="font-medium mb-2">Transfer Transactions:</p>
-          <ul className="space-y-1 text-muted-foreground">
-            <li>• <strong>from_account</strong> - Source account</li>
-            <li>• <strong>to_account</strong> - Destination account</li>
-            <li>• Must provide separate rows for sender & receiver</li>
-            <li>• from_account ≠ to_account</li>
-          </ul>
-        </div>
-
-        <div>
-          <p className="font-medium mb-2">Goal Deductions:</p>
-          <ul className="space-y-1 text-muted-foreground">
-            <li>• <strong>goal_name</strong> - Name of the goal</li>
-            <li>• <strong>deduction_type</strong> - "full" or "split"</li>
-            <li>• Goal must exist in the system</li>
-            <li>• Both fields optional together</li>
-          </ul>
-        </div>
-      </div>
-
-      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
-        <p className="text-sm text-yellow-700">
-          <strong>Constraints:</strong> Max 500 rows per import, max 5MB file size, dates cannot be in the future
-        </p>
-      </div>
     </div>
   );
 }

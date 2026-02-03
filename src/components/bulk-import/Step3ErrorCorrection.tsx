@@ -1,231 +1,347 @@
-import { useState, useEffect, useMemo } from "react";
-import { useAccounts } from "@/hooks/useAccounts";
-import { useGoals } from "@/hooks/useGoals";
-import { useTransactions } from "@/hooks/useTransactions";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle2, AlertTriangle } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { ParsedCSVRow, HeaderMapping, ValidationError } from "@/types/bulkImport";
-import { validateRow, ValidationContext } from "@/utils/csvValidator";
-import EditableCell from "./EditableCell";
+import { validateRow } from "@/utils/csvValidator";
+import { Account, Category, Goal } from "@/types/database";
 
 interface Step3ErrorCorrectionProps {
   csvData: ParsedCSVRow[];
   headerMapping: HeaderMapping;
   selectedRows: Set<number>;
-  onErrorsCorrected: (errors: Map<number, ValidationError[]>) => void;
+  onSelectedRowsChange: (rows: Set<number>) => void;
+  accounts: Account[];
+  categories: Category[];
+  goals: Goal[];
+  onImport: (data: ParsedCSVRow[], selectedRows: Set<number>) => Promise<void>;
+  isImporting?: boolean;
 }
 
 export default function Step3ErrorCorrection({
   csvData,
   headerMapping,
   selectedRows,
-  onErrorsCorrected,
+  onSelectedRowsChange,
+  accounts,
+  categories,
+  goals,
+  onImport,
+  isImporting = false,
 }: Step3ErrorCorrectionProps) {
-  const { accounts } = useAccounts();
-  const { goals } = useGoals();
-  const { categories } = useTransactions();
+  const [editingCell, setEditingCell] = useState<{
+    rowIndex: number;
+    column: string;
+  } | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [validationResults, setValidationResults] = useState<
+    Map<number, ValidationError[]>
+  >(new Map());
+  const [reviewed, setReviewed] = useState(false);
 
-  const [editableData, setEditableData] = useState<Map<number, ParsedCSVRow>>(new Map());
-  const [validationErrors, setValidationErrors] = useState<Map<number, ValidationError[]>>(new Map());
-  const [viewMode, setViewMode] = useState<"all" | "errors">("all");
+  // Get goal names
+  const goalNames = goals.map((g) => g.name);
 
-  // Validate all rows on mount
-  useEffect(() => {
-    validateAllRows();
-  }, []);
+  // Validate all rows
+  const validateAllRows = useCallback(() => {
+    const results = new Map<number, ValidationError[]>();
 
-  const validationContext: ValidationContext = {
-    accounts: accounts,
-    categories: categories || [],
-    goalNames: goals?.map((g) => g.name) || [],
-  };
-
-  const validateAllRows = () => {
-    const newErrors = new Map<number, ValidationError[]>();
-
-    selectedRows.forEach((rowIndex) => {
-      const row = editableData.get(rowIndex) || csvData[rowIndex];
-      const errors = validateRow(row, headerMapping, validationContext);
+    selectedRows.forEach((rowIdx) => {
+      const errors = validateRow(
+        csvData[rowIdx],
+        headerMapping,
+        { accounts, categories, goalNames }
+      );
       if (errors.length > 0) {
-        newErrors.set(rowIndex, errors);
-      } else {
-        newErrors.delete(rowIndex);
+        results.set(rowIdx, errors);
       }
     });
 
-    setValidationErrors(newErrors);
-    onErrorsCorrected(newErrors);
+    setValidationResults(results);
+    setReviewed(true);
+
+    return results.size === 0; // Return true if all valid
+  }, [csvData, headerMapping, selectedRows, accounts, categories, goalNames]);
+
+  const hasErrors = validationResults.size > 0;
+  const canImport = reviewed && !hasErrors;
+
+  const handleCellClick = (rowIndex: number, column: string, value: any) => {
+    setEditingCell({ rowIndex, column });
+    setEditValue(String(value || ""));
   };
 
-  const handleCellChange = (rowIndex: number, columnName: string, value: any) => {
-    const row = editableData.get(rowIndex) || { ...csvData[rowIndex] };
-    row[columnName] = value;
-    setEditableData((prev) => new Map(prev).set(rowIndex, row));
+  const handleCellSave = () => {
+    if (!editingCell) return;
+
+    const row = csvData[editingCell.rowIndex];
+    row[editingCell.column] = editValue;
 
     // Re-validate this row
-    const errors = validateRow(row, headerMapping, validationContext);
-    if (errors.length === 0) {
-      setValidationErrors((prev) => {
-        const newMap = new Map(prev);
-        newMap.delete(rowIndex);
-        return newMap;
-      });
+    const errors = validateRow(row, headerMapping, {
+      accounts,
+      categories,
+      goalNames,
+    });
+
+    const newResults = new Map(validationResults);
+    if (errors.length > 0) {
+      newResults.set(editingCell.rowIndex, errors);
     } else {
-      setValidationErrors((prev) => new Map(prev).set(rowIndex, errors));
+      newResults.delete(editingCell.rowIndex);
     }
+
+    setValidationResults(newResults);
+    setEditingCell(null);
+    setEditValue("");
   };
 
-  const filteredRows = useMemo(() => {
-    const all = Array.from(selectedRows).sort((a, b) => a - b);
-    if (viewMode === "all") return all;
-    return all.filter((idx) => validationErrors.has(idx));
-  }, [selectedRows, validationErrors, viewMode]);
+  const handleRowCheckChange = (rowIndex: number, checked: boolean) => {
+    const newSelected = new Set(selectedRows);
+    if (checked) {
+      newSelected.add(rowIndex);
+    } else {
+      newSelected.delete(rowIndex);
+    }
+    onSelectedRowsChange(newSelected);
+  };
 
-  const errorCount = validationErrors.size;
-  const originalColumns = Object.entries(headerMapping)
+  const handleImport = async () => {
+    if (!canImport) return;
+    await onImport(csvData, selectedRows);
+  };
+
+  // Get columns to display (those that aren't skipped)
+  const displayColumns = Object.entries(headerMapping)
     .filter(([, field]) => field !== "skip")
-    .map(([csv]) => csv);
+    .map(([csvColumn]) => csvColumn);
+
+  const getErrorsForCell = (rowIndex: number, column: string): ValidationError[] => {
+    const rowErrors = validationResults.get(rowIndex) || [];
+    return rowErrors.filter((e) => {
+      const mappedField = headerMapping[column];
+      return e.field === mappedField || e.field === column;
+    });
+  };
+
+  const getCellStatus = (rowIndex: number, column: string) => {
+    const errors = getErrorsForCell(rowIndex, column);
+    if (errors.length > 0) return "error";
+    if (reviewed) return "valid";
+    return "neutral";
+  };
+
+  const isRowValid = (rowIndex: number) => {
+    return !validationResults.has(rowIndex);
+  };
 
   return (
-    <div className="space-y-4">
-      {/* Summary Alert */}
-      {errorCount > 0 ? (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            {errorCount} row{errorCount !== 1 ? "s" : ""} have validation errors. Fix them before importing.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <Alert className="border-green-500/30 bg-green-500/5">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-700">All rows are valid and ready to import!</AlertDescription>
+    <div className="space-y-6">
+      {/* Import Status */}
+      {isImporting && (
+        <Alert className="border-blue-500/30 bg-blue-500/5">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <AlertDescription>Importing transactions...</AlertDescription>
         </Alert>
       )}
 
-      {/* View Toggle */}
-      <Tabs value={viewMode} onValueChange={(val) => setViewMode(val as "all" | "errors")}>
-        <TabsList>
-          <TabsTrigger value="all">
-            All Rows ({selectedRows.size})
-          </TabsTrigger>
-          <TabsTrigger value="errors" className={errorCount > 0 ? "" : "opacity-50"}>
-            Errors Only ({errorCount})
-          </TabsTrigger>
-        </TabsList>
+      {/* Review Section */}
+      {!reviewed && (
+        <div>
+          <Button
+            onClick={validateAllRows}
+            disabled={selectedRows.size === 0}
+            className="w-full"
+            size="lg"
+          >
+            Review Data
+          </Button>
+        </div>
+      )}
 
-        <TabsContent value="all" className="space-y-4">
-          <div className="text-sm text-muted-foreground">
-            Showing {filteredRows.length} of {selectedRows.size} selected rows
+      {/* Error Summary */}
+      {reviewed && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="p-3 bg-muted/30 rounded-lg border">
+            <p className="text-xs text-muted-foreground">Total Selected</p>
+            <p className="text-2xl font-bold">{selectedRows.size}</p>
           </div>
-        </TabsContent>
-
-        <TabsContent value="errors" className="space-y-4">
-          {errorCount === 0 && (
-            <div className="text-sm text-muted-foreground text-center py-6">
-              No errors found. All rows are valid!
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      {/* Data Table with Virtual Scrolling */}
-      {filteredRows.length > 0 && (
-        <div className="border rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted border-b sticky top-0">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold w-12">#</th>
-                  {originalColumns.map((col) => (
-                    <th key={col} className="px-4 py-3 text-left font-semibold whitespace-nowrap">
-                      {col}
-                    </th>
-                  ))}
-                  <th className="px-4 py-3 text-left font-semibold">Errors</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y max-h-[600px] overflow-y-auto block">
-                {filteredRows.map((rowIndex) => {
-                  const hasError = validationErrors.has(rowIndex);
-                  const row = editableData.get(rowIndex) || csvData[rowIndex];
-                  const errors = validationErrors.get(rowIndex) || [];
-
-                  return (
-                    <tr
-                      key={rowIndex}
-                      className={`${
-                        hasError
-                          ? "bg-red-500/5 hover:bg-red-500/10"
-                          : "bg-green-500/5 hover:bg-green-500/10"
-                      } transition-colors table w-full`}
-                    >
-                      <td className="px-4 py-3 text-muted-foreground font-mono w-12 table-cell">
-                        {rowIndex + 1}
-                      </td>
-                      {originalColumns.map((col) => (
-                        <td
-                          key={`${rowIndex}-${col}`}
-                          className={`px-4 py-3 table-cell ${
-                            errors.some((e) => {
-                              // Check if this field has an error
-                              const fieldErrors = errors.filter((err) => {
-                                const mapping = Object.entries(headerMapping).find(
-                                  ([csv]) => csv === col
-                                );
-                                return mapping && mapping[1] === err.field;
-                              });
-                              return fieldErrors.length > 0;
-                            })
-                              ? "border-l-4 border-red-500 bg-red-500/5"
-                              : ""
-                          }`}
-                        >
-                          <EditableCell
-                            value={String(row[col] || "")}
-                            onChange={(value) => handleCellChange(rowIndex, col, value)}
-                            hasError={errors.some((e) => {
-                              const mapping = Object.entries(headerMapping).find(
-                                ([csv]) => csv === col
-                              );
-                              return mapping && mapping[1] === e.field;
-                            })}
-                          />
-                        </td>
-                      ))}
-                      <td className="px-4 py-3 table-cell text-xs">
-                        {errors.length > 0 ? (
-                          <div className="space-y-1">
-                            {errors.map((error, idx) => (
-                              <div key={idx} className="text-red-600 font-medium">
-                                {error.message}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-green-600 font-medium flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" /> Valid
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="p-3 rounded-lg border bg-green-500/5 border-green-500/30">
+            <p className="text-xs text-muted-foreground">Valid</p>
+            <p className="text-2xl font-bold text-green-600">
+              {selectedRows.size - validationResults.size}
+            </p>
+          </div>
+          <div className={`p-3 rounded-lg border ${hasErrors ? 'bg-red-500/5 border-red-500/30' : 'bg-green-500/5 border-green-500/30'}`}>
+            <p className="text-xs text-muted-foreground">Errors</p>
+            <p className={`text-2xl font-bold ${hasErrors ? 'text-red-600' : 'text-green-600'}`}>
+              {validationResults.size}
+            </p>
           </div>
         </div>
       )}
 
-      {/* Import Button */}
-      <div className="flex justify-end gap-2 pt-4">
-        <Button onClick={() => validateAllRows()} variant="outline">
-          Re-validate All
-        </Button>
-        <Button disabled={errorCount > 0} size="lg">
-          {errorCount > 0 ? `Fix ${errorCount} error${errorCount !== 1 ? "s" : ""} to continue` : "Continue to Import"}
+      {/* Error Details */}
+      {reviewed && hasErrors && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {validationResults.size} row(s) have errors. Click cells to edit. Green = valid, Red = error.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Success Message */}
+      {reviewed && !hasErrors && (
+        <Alert className="border-green-500/30 bg-green-500/5">
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-700">
+            All rows are valid and ready to import!
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Data Table */}
+      {reviewed && (
+        <div className="overflow-x-auto border rounded-lg">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 border-b sticky top-0">
+              <tr>
+                <th className="p-2 text-left w-10">
+                  <Checkbox
+                    checked={selectedRows.size === csvData.length}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        onSelectedRowsChange(new Set(csvData.map((_, i) => i)));
+                      } else {
+                        onSelectedRowsChange(new Set());
+                      }
+                    }}
+                  />
+                </th>
+                <th className="p-2 text-left font-mono text-xs">Row</th>
+                {displayColumns.map((col) => (
+                  <th key={col} className="p-2 text-left font-mono text-xs whitespace-nowrap">
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y max-h-96 overflow-y-auto">
+              {csvData.map((row, rowIdx) => {
+                const isSelected = selectedRows.has(rowIdx);
+                const rowHasErrors = !isRowValid(rowIdx);
+
+                if (!isSelected) return null;
+
+                return (
+                  <tr
+                    key={rowIdx}
+                    className={`border-b hover:bg-muted/30 transition-colors ${
+                      rowHasErrors ? "bg-red-50/30" : reviewed ? "bg-green-50/30" : ""
+                    }`}
+                  >
+                    <td className="p-2">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) =>
+                          handleRowCheckChange(rowIdx, checked as boolean)
+                        }
+                      />
+                    </td>
+                    <td className="p-2 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                      {rowIdx + 1}
+                    </td>
+                    {displayColumns.map((col) => {
+                      const value = row[col];
+                      const cellErrors = getErrorsForCell(rowIdx, col);
+                      const isEditing =
+                        editingCell?.rowIndex === rowIdx &&
+                        editingCell?.column === col;
+                      const status = getCellStatus(rowIdx, col);
+
+                      return (
+                        <td
+                          key={col}
+                          className={`p-2 border-l font-mono text-xs cursor-pointer transition-colors ${
+                            status === "error"
+                              ? "bg-red-100/50 text-red-900 hover:bg-red-150/50"
+                              : status === "valid"
+                                ? "bg-green-100/30 text-green-900"
+                                : "hover:bg-muted/50"
+                          }`}
+                          onClick={() => handleCellClick(rowIdx, col, value)}
+                          title={cellErrors.map((e) => e.message).join("\n")}
+                        >
+                          {isEditing ? (
+                            <input
+                              autoFocus
+                              type="text"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onBlur={handleCellSave}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleCellSave();
+                                if (e.key === "Escape") setEditingCell(null);
+                              }}
+                              className="w-full bg-transparent border-b border-current px-1 py-0.5 outline-none"
+                            />
+                          ) : (
+                            <div className="max-w-xs truncate flex items-center gap-1">
+                              {status === "error" && (
+                                <span className="text-red-600 flex-shrink-0">⚠</span>
+                              )}
+                              {status === "valid" && (
+                                <span className="text-green-600 flex-shrink-0">✓</span>
+                              )}
+                              <span className="truncate">{String(value || "")}</span>
+                            </div>
+                          )}
+                          {cellErrors.length > 0 && !isEditing && (
+                            <div className="text-xs mt-1 text-red-700 italic max-w-xs truncate">
+                              {cellErrors[0].message}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex gap-2 flex-col sm:flex-row">
+        {reviewed && !canImport && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setReviewed(false);
+              setValidationResults(new Map());
+            }}
+            className="flex-1"
+          >
+            Re-review
+          </Button>
+        )}
+        <Button
+          onClick={handleImport}
+          disabled={!canImport || isImporting}
+          className="flex-1"
+          size="lg"
+        >
+          {isImporting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Importing...
+            </>
+          ) : (
+            "Import Transactions"
+          )}
         </Button>
       </div>
     </div>

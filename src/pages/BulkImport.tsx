@@ -48,21 +48,17 @@ export default function BulkImport() {
     setSelectedRows(rowIndices);
   };
 
-  const handleErrorsCorrected = (errors: Map<number, ValidationError[]>) => {
-    setValidationErrors(errors);
-  };
-
-  const handleImport = async () => {
-    if (!user || validationErrors.size > 0) return;
+  const handleImport = async (data: ParsedCSVRow[], rows: Set<number>) => {
+    if (!user) return;
 
     setIsImporting(true);
     try {
       const result = await importBulkTransactions(
         user.id,
-        csvData,
+        data,
         headerMapping,
-        selectedRows,
-        accounts,
+        rows,
+        accounts || [],
         categories || [],
         goals || []
       );
@@ -72,7 +68,7 @@ export default function BulkImport() {
       setImportResult({
         success: false,
         successfulImports: 0,
-        failedImports: selectedRows.size,
+        failedImports: rows.size,
         errors: [{ rowIndex: 0, message: "Import failed: " + (err instanceof Error ? err.message : "Unknown error") }],
       });
     } finally {
@@ -248,42 +244,27 @@ export default function BulkImport() {
               csvData={csvData}
               headerMapping={headerMapping}
               selectedRows={selectedRows}
-              onErrorsCorrected={handleErrorsCorrected}
+              onSelectedRowsChange={handleRowsSelected}
+              accounts={accounts || []}
+              categories={categories || []}
+              goals={goals || []}
+              onImport={handleImport}
+              isImporting={isImporting}
             />
           )}
 
-          {/* Navigation Buttons */}
-          <div className="flex justify-between pt-6">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={currentStep === 1 || isImporting}
-            >
-              Back
-            </Button>
-
-            {currentStep < 3 && (
+          {/* Back Button */}
+          {currentStep > 1 && (
+            <div className="flex pt-4">
               <Button
-                onClick={() => {
-                  if (currentStep === 1) {
-                    // This is handled by Step1FileUpload
-                  }
-                  // Step 2 navigation is handled by Step2HeaderMapping
-                }}
+                variant="outline"
+                onClick={handleBack}
+                disabled={isImporting}
               >
-                Next
+                Back to Previous Step
               </Button>
-            )}
-
-            {currentStep === 3 && (
-              <Button
-                onClick={handleImport}
-                disabled={validationErrors.size > 0 || isImporting}
-              >
-                {isImporting ? "Importing..." : "Import"}
-              </Button>
-            )}
-          </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
