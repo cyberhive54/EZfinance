@@ -4,6 +4,7 @@ import { useAccounts } from "@/hooks/useAccounts";
 import { useGoals, Goal } from "@/hooks/useGoals";
 import { useProfile, formatCurrency, getCurrencySymbol } from "@/hooks/useProfile";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { TransactionsSkeleton } from "@/components/skeletons/PageSkeletons";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { CurrencyInput } from "@/components/ui/currency-input";
-import { Plus, ArrowUpRight, ArrowDownRight, Loader2, Trash2, Target, AlertCircle, Copy, Edit2, ChevronUp, ChevronDown, ArrowUpDown, MoreHorizontal, X, Calendar as CalendarIcon, Download, Eye } from "lucide-react";
+import { Plus, ArrowUpRight, ArrowDownRight, Loader2, Trash2, Target, AlertCircle, Copy, Edit2, ChevronUp, ChevronDown, ArrowUpDown, MoreHorizontal, X, Calendar as CalendarIcon, Download, Eye, Upload } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subDays } from "date-fns";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -120,6 +121,7 @@ function AttachmentCell({ transactionId }: { transactionId: string }) {
 }
 
 export default function Transactions() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { transactions, categories, isLoading, createTransaction, updateTransaction, deleteTransaction, isCreating, isUpdating } = useTransactions();
   const { accounts } = useAccounts();
@@ -643,18 +645,28 @@ export default function Transactions() {
   return (
     <div className="space-y-6 pb-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-3xl font-bold text-foreground">Transactions</h1>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { 
-          setIsDialogOpen(open); 
-          if (!open) resetEditState(); 
-        }}>
-          <DialogTrigger asChild>
-            <Button size="icon" className="md:hidden"><Plus className="h-5 w-5" /></Button>
-          </DialogTrigger>
-          <DialogTrigger asChild>
-            <Button className="hidden md:flex"><Plus className="mr-2 h-4 w-4" />{editingTransaction ? "Edit" : "Add"} Transaction</Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/transactions/bulk-import")}
+            className="gap-2"
+          >
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Bulk Import</span>
+          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { 
+            setIsDialogOpen(open); 
+            if (!open) resetEditState(); 
+          }}>
+            <DialogTrigger asChild>
+              <Button size="icon" className="md:hidden"><Plus className="h-5 w-5" /></Button>
+            </DialogTrigger>
+            <DialogTrigger asChild>
+              <Button className="hidden md:flex"><Plus className="mr-2 h-4 w-4" />{editingTransaction ? "Edit" : "Add"} Transaction</Button>
+            </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
             <DialogHeader>
               <DialogTitle>{editingTransaction ? "Edit" : "Add"} Transaction</DialogTitle>
@@ -956,7 +968,8 @@ export default function Transactions() {
               </Button>
             </form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       {/* Search and Filters - One Line on PC */}
