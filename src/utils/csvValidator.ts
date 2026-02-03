@@ -257,118 +257,61 @@ export function validateRow(
     }
   }
 
+  // Validate transfer-only fields for income/expense (should be empty)
+  if (!transactionType?.startsWith("transfer")) {
+    // For income/expense, from_account and to_account should be empty
+    if (mappedValues.from_account && String(mappedValues.from_account).trim() !== "") {
+      errors.push({
+        field: "from_account",
+        message: `from_account should only be used for transfer transactions, not ${transactionType || "unknown"}`,
+        rowValue: mappedValues.from_account,
+      });
+    }
+    if (mappedValues.to_account && String(mappedValues.to_account).trim() !== "") {
+      errors.push({
+        field: "to_account",
+        message: `to_account should only be used for transfer transactions, not ${transactionType || "unknown"}`,
+        rowValue: mappedValues.to_account,
+      });
+    }
+  }
+
   // Validate goal-related fields
   const hasGoal = mappedValues.goal_name !== undefined && mappedValues.goal_name !== "";
-  const hasDeduction = mappedValues.deduction_type !== undefined && mappedValues.deduction_type !== "";
-  const hasContribution = mappedValues.contribute_to_goal !== undefined && mappedValues.contribute_to_goal !== "";
-  const hasSplitAmount = mappedValues.split_amount !== undefined && mappedValues.split_amount !== "";
+  const hasExchange = mappedValues.exchange_from_goal !== undefined && mappedValues.exchange_from_goal !== "";
 
-  // Validate: deduction_type requires goal_name
-  if (hasDeduction && !hasGoal) {
+  // Validate: exchange_from_goal requires goal_name
+  if (hasExchange && !hasGoal) {
     errors.push({
-      field: "deduction_type",
-      message: "Deduction type requires goal_name to be specified",
-      rowValue: mappedValues.deduction_type,
+      field: "exchange_from_goal",
+      message: "Exchange amount requires goal_name to be specified",
+      rowValue: mappedValues.exchange_from_goal,
     });
   }
 
-  // Validate: contribute_to_goal requires goal_name
-  if (hasContribution && !hasGoal) {
-    errors.push({
-      field: "contribute_to_goal",
-      message: "Contribute to goal requires goal_name to be specified",
-      rowValue: mappedValues.contribute_to_goal,
-    });
-  }
-
-  // Validate: cannot have both deduction_type and contribute_to_goal
-  if (hasDeduction && hasContribution) {
-    errors.push({
-      field: "contribute_to_goal",
-      message: "Cannot have both deduction_type and contribute_to_goal in the same row",
-      rowValue: mappedValues.contribute_to_goal,
-    });
-  }
-
-  // Validate deduction_type values
-  if (hasDeduction) {
-    const deductionType = String(mappedValues.deduction_type).trim().toLowerCase();
-    if (!["full", "split"].includes(deductionType)) {
+  // Validate exchange_from_goal amount
+  if (hasExchange) {
+    const exchangeAmount = parseFloat(String(mappedValues.exchange_from_goal));
+    if (isNaN(exchangeAmount) || exchangeAmount <= 0) {
       errors.push({
-        field: "deduction_type",
-        message: `Invalid deduction type: "${deductionType}". Must be "full" or "split"`,
-        rowValue: deductionType,
+        field: "exchange_from_goal",
+        message: `Exchange amount must be a positive number, got: ${mappedValues.exchange_from_goal}`,
+        rowValue: mappedValues.exchange_from_goal,
       });
-    }
-
-    // If deduction_type is "full", split_amount must be empty
-    if (deductionType === "full" && hasSplitAmount) {
+    } else if (exchangeAmount >= mappedValues.amount) {
       errors.push({
-        field: "split_amount",
-        message: "Split amount cannot be specified when deduction type is 'full'",
-        rowValue: mappedValues.split_amount,
-      });
-    }
-
-    // If deduction_type is "split", split_amount is required and must be positive and less than amount
-    if (deductionType === "split") {
-      if (!hasSplitAmount) {
-        errors.push({
-          field: "split_amount",
-          message: "Split amount is required when deduction type is 'split'",
-        });
-      } else {
-        const splitAmount = parseFloat(String(mappedValues.split_amount));
-        if (isNaN(splitAmount) || splitAmount <= 0) {
-          errors.push({
-            field: "split_amount",
-            message: `Split amount must be a positive number, got: ${mappedValues.split_amount}`,
-            rowValue: mappedValues.split_amount,
-          });
-        } else if (splitAmount >= mappedValues.amount) {
-          errors.push({
-            field: "split_amount",
-            message: `Split amount (${splitAmount}) must be less than transaction amount (${mappedValues.amount})`,
-            rowValue: mappedValues.split_amount,
-          });
-        } else {
-          // Check decimal places
-          const decimalPlaces = String(mappedValues.split_amount).split('.')[1]?.length || 0;
-          if (decimalPlaces > 2) {
-            errors.push({
-              field: "split_amount",
-              message: `Split amount can have maximum 2 decimal places, got: ${decimalPlaces}. Value: ${mappedValues.split_amount}`,
-              rowValue: mappedValues.split_amount,
-            });
-          }
-        }
-      }
-    }
-  }
-
-  // Validate contribute_to_goal
-  if (hasContribution) {
-    const contributionAmount = parseFloat(String(mappedValues.contribute_to_goal));
-    if (isNaN(contributionAmount) || contributionAmount <= 0) {
-      errors.push({
-        field: "contribute_to_goal",
-        message: `Contribution amount must be a positive number, got: ${mappedValues.contribute_to_goal}`,
-        rowValue: mappedValues.contribute_to_goal,
-      });
-    } else if (contributionAmount > mappedValues.amount) {
-      errors.push({
-        field: "contribute_to_goal",
-        message: `Contribution amount (${contributionAmount}) cannot exceed transaction amount (${mappedValues.amount})`,
-        rowValue: mappedValues.contribute_to_goal,
+        field: "exchange_from_goal",
+        message: `Exchange amount (${exchangeAmount}) must be less than transaction amount (${mappedValues.amount})`,
+        rowValue: mappedValues.exchange_from_goal,
       });
     } else {
       // Check decimal places
-      const decimalPlaces = String(mappedValues.contribute_to_goal).split('.')[1]?.length || 0;
+      const decimalPlaces = String(mappedValues.exchange_from_goal).split('.')[1]?.length || 0;
       if (decimalPlaces > 2) {
         errors.push({
-          field: "contribute_to_goal",
-          message: `Contribution amount can have maximum 2 decimal places, got: ${decimalPlaces}. Value: ${mappedValues.contribute_to_goal}`,
-          rowValue: mappedValues.contribute_to_goal,
+          field: "exchange_from_goal",
+          message: `Exchange amount can have maximum 2 decimal places, got: ${decimalPlaces}. Value: ${mappedValues.exchange_from_goal}`,
+          rowValue: mappedValues.exchange_from_goal,
         });
       }
     }

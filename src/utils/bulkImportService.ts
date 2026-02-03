@@ -157,7 +157,7 @@ async function importRegularTransaction(
   let goalAmount = null;
   let goalAllocationMode = null; // "deduct" or "contribute"
   
-  if (mappedData.goal_name) {
+  if (mappedData.goal_name && mappedData.exchange_from_goal) {
     // Normalize goal name for lookup
     const goalInput = normalizeFieldName(String(mappedData.goal_name));
     goal = goals.find((g) => normalizeFieldName(g.name) === goalInput);
@@ -165,19 +165,13 @@ async function importRegularTransaction(
       throw new Error(`Goal ${mappedData.goal_name} not found`);
     }
 
-    // Determine if this is a deduction or contribution
-    if (mappedData.deduction_type) {
-      goalAllocationMode = "deduct";
-      // Calculate goal amount based on deduction type
-      if (mappedData.deduction_type === "full") {
-        goalAmount = mappedData.amount; // Full amount for full type
-      } else if (mappedData.deduction_type === "split") {
-        // For split, use split_amount if provided, otherwise use half the amount
-        goalAmount = mappedData.split_amount ? parseFloat(String(mappedData.split_amount)) : mappedData.amount / 2;
-      }
-    } else if (mappedData.contribute_to_goal) {
-      goalAllocationMode = "contribute";
-      goalAmount = parseFloat(String(mappedData.contribute_to_goal));
+    // Auto-determine exchange mode based on transaction type
+    if (mappedData.type === "income") {
+      goalAllocationMode = "contribute"; // Income contributes to goal
+      goalAmount = parseFloat(String(mappedData.exchange_from_goal));
+    } else if (mappedData.type === "expense") {
+      goalAllocationMode = "deduct"; // Expense deducts from goal
+      goalAmount = parseFloat(String(mappedData.exchange_from_goal));
     }
   }
 
@@ -317,14 +311,7 @@ async function importTransferTransaction(
 
   if (receiverError) throw receiverError;
 
-  // Link them in transfer_transactions table
-  const { error: linkError } = await supabase.from("transfer_transactions").insert({
-    from_transaction_id: senderTx.id,
-    to_transaction_id: receiverTx.id,
-    transfer_type: "peer-to-peer",
-  });
-
-  if (linkError) throw linkError;
+  // No need to link transfers in separate table - they're tracked by sender/receiver types
 
   // Update both account balances
   const { error: senderBalError } = await supabase.rpc("update_account_balance", {
@@ -364,9 +351,8 @@ function extractMappedData(row: ParsedCSVRow, mapping: HeaderMapping) {
           const normalized = normalizeTransactionType(String(value));
           mapped[field] = normalized || String(value).toLowerCase().trim();
           break;
-        case "split_amount":
-        case "contribute_to_goal":
-          // Parse as numbers
+        case "exchange_from_goal":
+          // Parse as number
           mapped[field] = parseFloat(String(value));
           break;
         case "account_id":

@@ -280,12 +280,10 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
               <li><span className="font-mono">category</span> - Exact match (case-insensitive) for income/expense transactions; must match type (not for transfers)</li>
               <li><span className="font-mono">description</span> - Any text</li>
               <li><span className="font-mono">notes</span> - Any text</li>
-              <li><span className="font-mono">goal_name</span> - Must exist in system; requires either deduction_type OR contribute_to_goal</li>
-              <li><span className="font-mono">deduction_type</span> - "full" or "split" (takes money FROM goal); requires goal_name; if "split", must provide split_amount</li>
-              <li><span className="font-mono">split_amount</span> - Amount to take from goal (only with deduction_type=split); must be less than transaction amount</li>
-              <li><span className="font-mono">contribute_to_goal</span> - Amount to ADD to goal; mutually exclusive with deduction_type; must not exceed transaction amount</li>
-              <li><span className="font-mono">from_account</span> - For transfers; exact name match (case-insensitive)</li>
-              <li><span className="font-mono">to_account</span> - For transfers; exact name match (case-insensitive)</li>
+              <li><span className="font-mono">goal_name</span> - Must exist in system; optional, requires exchange_from_goal if used</li>
+              <li><span className="font-mono">exchange_from_goal</span> - Amount to exchange with goal (auto-mode: income→contribute, expense→deduct); must be less than transaction amount</li>
+              <li><span className="font-mono">from_account</span> - For transfers only; exact name match (case-insensitive)</li>
+              <li><span className="font-mono">to_account</span> - For transfers only; exact name match (case-insensitive)</li>
               <li><span className="font-mono">frequency</span> - daily, weekly, monthly, or yearly (case-insensitive, exact match)</li>
             </ul>
           </div>
@@ -298,12 +296,12 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
               <li>Max 5MB file size</li>
               <li>Dates cannot be in the future</li>
               <li>Amounts must be positive with max 2 decimal places</li>
-              <li>Transfer type requires both from_account and to_account (cannot be the same)</li>
-              <li>Categories must exactly match system categories and transaction type (income categories for income only, expense for expense)</li>
+              <li>Transfer type requires both from_account and to_account (cannot be the same); no goal fields allowed</li>
+              <li>Income/Expense transactions cannot have from_account or to_account; use account_id instead</li>
+              <li>Categories must exactly match system categories and transaction type (income for income only, expense for expense)</li>
               <li>Account names must exactly match your account names (case-insensitive)</li>
-              <li>Goal deductions: goal_name requires deduction_type; cannot have both deduction_type and contribute_to_goal</li>
-              <li>Split deductions: deduction_type="full" means no split_amount allowed; deduction_type="split" requires split_amount &lt; transaction amount</li>
-              <li>Contributions: contribute_to_goal must be ≤ transaction amount and requires goal_name (no deduction_type)</li>
+              <li>Goal exchanges: exchange_from_goal with income automatically contributes to goal; with expense automatically deducts from goal</li>
+              <li>Exchange amount must be &lt; transaction amount and requires goal_name</li>
               <li>Frequency values must be exact: daily, weekly, monthly, or yearly (case-insensitive)</li>
             </ul>
           </div>
@@ -324,12 +322,12 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => copyToClipboard(`date,account_id,type,category,amount,description,goal_name,deduction_type,split_amount,contribute_to_goal,from_account,to_account,frequency
+                onClick={() => copyToClipboard(`date,account_id,type,category,amount,description,goal_name,exchange_from_goal,from_account,to_account,frequency
 2024-01-15,Checking,expense,groceries,45.50,Weekly groceries
-2024-01-16,Checking,income,Salary,5000.00,Monthly salary,Emergency Fund,full,,,
-2024-01-17,Checking,expense,utilities,120.00,Electric bill,Vacation,split,50.00,,
-2024-01-18,Checking,expense,insurance,100.00,Insurance payment,Travel Fund,,,75.00,
-2024-01-19,Checking,transfer,,,Transfer between accounts,,,,,500.00,Checking,Savings`, "sample", 0)}
+2024-01-16,Checking,income,Salary,5000.00,Monthly salary,Emergency Fund,3000.00
+2024-01-17,Checking,expense,utilities,120.00,Electric bill,Vacation,50.00
+2024-01-18,Checking,expense,insurance,100.00,Insurance payment
+2024-01-19,Checking,transfer,,,Transfer between accounts,,,Checking,Savings,500.00`, "sample", 0)}
                 className="h-6 gap-1"
               >
                 {copiedSampleIndex === 0 ? (
@@ -341,12 +339,12 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
               </Button>
             </div>
             <div className="bg-blue-50/50 border border-blue-200 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre max-h-32">
-{`date,account_id,type,category,amount,description,goal_name,deduction_type,split_amount,contribute_to_goal,from_account,to_account,frequency
+{`date,account_id,type,category,amount,description,goal_name,exchange_from_goal,from_account,to_account,frequency
 2024-01-15,Checking,expense,groceries,45.50,Weekly groceries
-2024-01-16,Checking,income,Salary,5000.00,Monthly salary,Emergency Fund,full,,,
-2024-01-17,Checking,expense,utilities,120.00,Electric bill,Vacation,split,50.00,,
-2024-01-18,Checking,expense,insurance,100.00,Insurance payment,Travel Fund,,,75.00,
-2024-01-19,Checking,transfer,,,Transfer between accounts,,,,,500.00,Checking,Savings`}
+2024-01-16,Checking,income,Salary,5000.00,Monthly salary,Emergency Fund,3000.00
+2024-01-17,Checking,expense,utilities,120.00,Electric bill,Vacation,50.00
+2024-01-18,Checking,expense,insurance,100.00,Insurance payment
+2024-01-19,Checking,transfer,,,Transfer between accounts,,,Checking,Savings,500.00`}
             </div>
           </div>
 

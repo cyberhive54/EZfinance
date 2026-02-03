@@ -32,10 +32,8 @@ const AVAILABLE_FIELDS: { value: HeaderField; label: string }[] = [
   { value: "amount", label: "Amount" },
   { value: "description", label: "Title" },
   { value: "notes", label: "Notes" },
-  { value: "goal_name", label: "Goal Name (for deduction/contribution)" },
-  { value: "deduction_type", label: "Deduction Type (full/split) - from goal" },
-  { value: "split_amount", label: "Split Amount (for split deductions)" },
-  { value: "contribute_to_goal", label: "Contribute Amount (to add to goal)" },
+  { value: "goal_name", label: "Goal Name (exchanges with goal)" },
+  { value: "exchange_from_goal", label: "Exchange Amount (auto: income→contribute, expense→deduct)" },
   { value: "frequency", label: "Frequency" },
 ];
 

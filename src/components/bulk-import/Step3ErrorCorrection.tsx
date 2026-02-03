@@ -162,7 +162,7 @@ export default function Step3ErrorCorrection({
       "description": "Title",
       "notes": "Notes",
       "goal_name": "Goal Name",
-      "deduction_type": "Deduction Type",
+      "exchange_from_goal": "Exchange Amount",
       "frequency": "Frequency",
     };
     
