@@ -18,18 +18,18 @@ Three main issues addressed with comprehensive fixes:
 ### Issue 1: Dashboard Blank Page (CRITICAL)
 
 **Before:**
-```
+\`\`\`
 User logs in → Dashboard shows blank page
 Navigate to another page → back to Dashboard → works fine
 Apply filter → blank page again
-```
+\`\`\`
 
 **After:**
-```
+\`\`\`
 User logs in → Dashboard loads with skeleton → shows data
 Navigate to another page → back to Dashboard → works fine
 Apply filter → smooth transition with updated data
-```
+\`\`\`
 
 **Technical Changes:**
 - File: `/src/pages/Dashboard.tsx`
@@ -45,7 +45,7 @@ Apply filter → smooth transition with updated data
 **Status:** ✅ Already Correctly Implemented
 
 **How It Works:**
-```
+\`\`\`
 User tries to access /dashboard without login
   ↓
 ProtectedRoute component checks useAuth()
@@ -53,7 +53,7 @@ ProtectedRoute component checks useAuth()
 user is null → redirect to /auth
   ↓
 User sees login page
-```
+\`\`\`
 
 **File Location:**
 - `/src/components/ProtectedRoute.tsx` (unchanged - working correctly)
@@ -85,13 +85,13 @@ User sees login page
 ### Issue 4: Transaction Attachment Viewer
 
 **Before:**
-```
+\`\`\`
 Transaction row shows: 📎 3
 (Static text, not clickable)
-```
+\`\`\`
 
 **After:**
-```
+\`\`\`
 Transaction row shows: 📎 3
 (Clickable button)
   ↓
@@ -102,7 +102,7 @@ Modal shows:
   - File name and size
   - View button (opens in new tab)
   - Download button (saves file)
-```
+\`\`\`
 
 **Technical Changes:**
 - File: `/src/pages/Transactions.tsx`
@@ -118,7 +118,7 @@ Modal shows:
 ### Modified Files
 
 #### 1. `/src/pages/Dashboard.tsx`
-```diff
+\`\`\`diff
 - const isLoading = dashboardLoading || statsLoading;
 + const isInitialLoading = dashboardLoading || !accounts || !categories || accounts.length === 0;
 
@@ -130,7 +130,7 @@ Modal shows:
 +   if (!stats?.incomeByCategory || !categories || categories.length === 0) return [];
 +   // ... safe processing
 + }, [stats?.incomeByCategory, categories]);
-```
+\`\`\`
 
 **What Changed:**
 - Better loading state detection
@@ -138,7 +138,7 @@ Modal shows:
 - Proper null/undefined handling
 
 #### 2. `/src/pages/Transactions.tsx`
-```diff
+\`\`\`diff
 + import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 + import { Download, Eye } from "lucide-react";
 
@@ -180,7 +180,7 @@ Modal shows:
 +     </Dialog>
 +   );
 + }
-```
+\`\`\`
 
 **What Changed:**
 - Made attachment count clickable

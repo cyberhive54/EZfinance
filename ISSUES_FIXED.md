@@ -24,12 +24,12 @@
    - Returns empty arrays instead of attempting to map undefined data
 
 3. **Chart Data Safety**:
-   ```typescript
+   \`\`\`typescript
    const incomeByCategories = useMemo(() => {
      if (!stats?.incomeByCategory || !categories || categories.length === 0) return [];
      // ... process data
    }, [stats?.incomeByCategory, categories]);
-   ```
+   \`\`\`
 
 ### Result:
 - Dashboard now loads correctly on initial render
@@ -50,7 +50,7 @@
 - All protected routes (Dashboard, Transactions, Budget, etc.) are wrapped with this component
 
 ### Code Flow:
-```typescript
+\`\`\`typescript
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
 
@@ -64,7 +64,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   return <>{children}</>;  // Allow access
 }
-```
+\`\`\`
 
 ### Routes Protected:
 - `/` (Dashboard)
@@ -143,7 +143,7 @@ Created comprehensive documentation file: `/BUDGET_IMPLEMENTATION.md`
    - **Hover Effects**: Better UX with hover states
 
 3. **Code Implementation**:
-   ```typescript
+   \`\`\`typescript
    function AttachmentCell({ transactionId }: { transactionId: string }) {
      const [isOpen, setIsOpen] = useState(false);
      const { attachments, isLoading } = useTransactionAttachments(transactionId);
@@ -152,7 +152,7 @@ Created comprehensive documentation file: `/BUDGET_IMPLEMENTATION.md`
      // Modal shows thumbnails with View/Download actions
      // handleDownload() function triggers browser download
    }
-   ```
+   \`\`\`
 
 4. **User Interface**:
    - Clicking attachment count opens modal

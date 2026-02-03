@@ -25,7 +25,7 @@ Four major features have been implemented to enhance account and budget manageme
 4. When enabled, unused budget must be manually carried to next period (via UI action, not yet implemented in system)
 
 **Code Pattern:**
-```typescript
+\`\`\`typescript
 // Manual rollover only for recurring budgets
 {canRecur && isRecurring && (
   <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/50">
@@ -33,7 +33,7 @@ Four major features have been implemented to enhance account and budget manageme
     <Switch checked={manualRollover} onCheckedChange={setManualRollover} />
   </div>
 )}
-```
+\`\`\`
 
 ---
 
@@ -79,7 +79,7 @@ Four major features have been implemented to enhance account and budget manageme
 8. System verifies password, updates balance, creates transaction
 
 **Code Pattern:**
-```typescript
+\`\`\`typescript
 // Password verification via re-authentication
 const { error } = await supabase.auth.signInWithPassword({
   email: user?.email || "",
@@ -95,7 +95,7 @@ await createTransaction({
   description: `Balance Adjustment - ${reasonInput}`,
   // ...
 });
-```
+\`\`\`
 
 ---
 
@@ -156,7 +156,7 @@ await createTransaction({
 9. Shows confirmation toast
 
 **Code Pattern:**
-```typescript
+\`\`\`typescript
 // Transfer transaction recording
 await createTransaction({
   type: "transfer",
@@ -171,7 +171,7 @@ await createTransaction({
 // Update both accounts
 await updateAccount({ id: fromAccount.id, balance: newFromBalance });
 await updateAccount({ id: toAccount.id, balance: newToBalance });
-```
+\`\`\`
 
 **Validation:**
 - Both accounts must be different

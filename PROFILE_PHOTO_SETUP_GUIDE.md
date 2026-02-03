@@ -11,7 +11,7 @@ This guide walks you through adding a profile photo feature that stores image UR
 
 Create a new migration file: `/supabase/migrations/20260201_add_profile_photo.sql`
 
-```sql
+\`\`\`sql
 -- Add profile_photo_url column to profiles table
 ALTER TABLE profiles 
 ADD COLUMN profile_photo_url TEXT DEFAULT NULL,
@@ -23,7 +23,7 @@ CREATE INDEX idx_profiles_user_id ON profiles(id);
 -- Add comment
 COMMENT ON COLUMN profiles.profile_photo_url IS 'Cloudinary URL for user profile photo';
 COMMENT ON COLUMN profiles.profile_photo_cloudinary_public_id IS 'Cloudinary public ID for deletion purposes';
-```
+\`\`\`
 
 ### 1b. Run the Migration
 Execute this SQL in Supabase dashboard → SQL Editor
@@ -34,7 +34,7 @@ Execute this SQL in Supabase dashboard → SQL Editor
 
 ### Update `/src/types/database.ts`
 
-```typescript
+\`\`\`typescript
 export interface Profile {
   id: string;
   user_id: string;
@@ -49,7 +49,7 @@ export interface Profile {
   created_at: string;
   updated_at: string;
 }
-```
+\`\`\`
 
 ---
 
@@ -57,7 +57,7 @@ export interface Profile {
 
 Create `/src/utils/profilePhoto.ts`
 
-```typescript
+\`\`\`typescript
 /**
  * Profile photo upload and management utility
  * Uses Cloudinary for storage and Supabase for URL tracking
@@ -129,7 +129,7 @@ export async function deleteProfilePhoto(publicId: string): Promise<void> {
   // Backend will handle actual deletion via Cloudinary Admin API
   // For now, just log for backend processing
 }
-```
+\`\`\`
 
 ---
 
@@ -137,7 +137,7 @@ export async function deleteProfilePhoto(publicId: string): Promise<void> {
 
 Create `/src/hooks/useProfilePhoto.ts`
 
-```typescript
+\`\`\`typescript
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -301,7 +301,7 @@ export function useProfilePhoto() {
     isDeleting: deleteMutation.isPending,
   };
 }
-```
+\`\`\`
 
 ---
 
@@ -309,7 +309,7 @@ export function useProfilePhoto() {
 
 Create `/src/components/profile/ProfilePhotoUpload.tsx`
 
-```typescript
+\`\`\`typescript
 import React, { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useProfilePhoto } from "@/hooks/useProfilePhoto";
@@ -418,7 +418,7 @@ export function ProfilePhotoUpload({ className }: ProfilePhotoUploadProps) {
     </div>
   );
 }
-```
+\`\`\`
 
 ---
 
@@ -426,7 +426,7 @@ export function ProfilePhotoUpload({ className }: ProfilePhotoUploadProps) {
 
 In your profile/settings page (e.g., `/src/pages/Profile.tsx` or `/src/pages/Settings.tsx`):
 
-```typescript
+\`\`\`typescript
 import { ProfilePhotoUpload } from "@/components/profile/ProfilePhotoUpload";
 
 export default function ProfilePage() {
@@ -445,7 +445,7 @@ export default function ProfilePage() {
     </div>
   );
 }
-```
+\`\`\`
 
 ---
 
@@ -455,7 +455,7 @@ Go to Supabase Dashboard → Authentication → Policies
 
 ### Create RLS Policy for profiles table
 
-```sql
+\`\`\`sql
 -- Allow users to read their own profile
 CREATE POLICY "Users can view their own profile"
 ON profiles FOR SELECT
@@ -471,7 +471,7 @@ WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users can create their own profile"
 ON profiles FOR INSERT
 WITH CHECK (auth.uid() = id);
-```
+\`\`\`
 
 ---
 
@@ -479,19 +479,19 @@ WITH CHECK (auth.uid() = id);
 
 When testing, check the browser console for these debug logs:
 
-```
+\`\`\`
 [v0] PROFILE PHOTO UPLOAD: Starting upload
 [v0] PROFILE PHOTO UPLOAD: Success
 [v0] PROFILE PHOTO FETCH: Getting profile photo
 [v0] PROFILE PHOTO DELETE MUTATION: Starting
-```
+\`\`\`
 
 If uploads fail, look for:
-```
+\`\`\`
 [v0] PROFILE PHOTO ERROR
 [v0] PROFILE PHOTO UPLOAD ERROR
 [v0] PROFILE PHOTO UPDATE ERROR
-```
+\`\`\`
 
 ---
 

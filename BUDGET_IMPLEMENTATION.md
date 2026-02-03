@@ -40,12 +40,12 @@ The main hook managing all budget operations.
 ## Budget Logic & Rules
 
 ### Period Types & Date Calculation:
-```
+\`\`\`
 Weekly:    Monday - Sunday (ISO week)
 Monthly:   1st - Last day of month
 Yearly:    Jan 1 - Dec 31
 Custom:    User-defined start and end dates
-```
+\`\`\`
 
 ### Budget Constraints & Validation:
 
@@ -76,20 +76,20 @@ Custom:    User-defined start and end dates
 ### How Spending is Tracked:
 
 **For Overall Budgets:**
-```typescript
+\`\`\`typescript
 1. Fetch all transactions in budget date range
 2. Filter: type === "expense"
 3. Sum all amounts for that period
 4. Compare: spent vs (amount + rollover_amount)
-```
+\`\`\`
 
 **For Category Budgets:**
-```typescript
+\`\`\`typescript
 1. Fetch all transactions in budget date range
 2. Filter: type === "expense" AND category_id === budget.category_id
 3. Sum amounts for that category in that period
 4. Compare: spent vs (amount + rollover_amount)
-```
+\`\`\`
 
 ### Multi-Budget Optimization:
 - `spendingQuery` uses a single database fetch for efficiency
@@ -104,17 +104,17 @@ Custom:    User-defined start and end dates
 ### Status Calculation in Components:
 
 **OverallBudgetCard.tsx:**
-```
+\`\`\`
 percentage = (spent / totalBudget) × 100
 isOverBudget = spent > totalBudget
 remaining = max(totalBudget - spent, 0)
-```
+\`\`\`
 
 **BudgetCard.tsx:**
-```
+\`\`\`
 Same logic, but applies only to specific category
 Progress bar color changes when spent > budget
-```
+\`\`\`
 
 ### Warning States:
 - ⚠️ **Over Budget**: Red indicator when `spent > totalBudget`
@@ -126,12 +126,12 @@ Progress bar color changes when spent > budget
 ## Query System & Caching
 
 ### React Query Keys:
-```
+\`\`\`
 ["budgets", "active", userId]           // Current period budgets
 ["budgets", "history", userId]          // Past budgets
 ["budget-spending", userId, budgetIds]  // Spending amounts
 ["budget-history-spending", ...]        // Historical spending
-```
+\`\`\`
 
 ### Query Dependencies:
 1. `budgetsQuery`: Fetches active budgets (current date within range)
@@ -151,10 +151,10 @@ Progress bar color changes when spent > budget
    - Initial budget created with calculated dates
 
 2. **Trigger Phase**:
-   ```typescript
+   \`\`\`typescript
    // On component mount, trigger recurring budget creation
    triggerRecurringMutation.mutate();
-   ```
+   \`\`\`
 
 3. **Database Function**:
    - Calls Supabase RPC: `create_recurring_budgets()`
@@ -166,7 +166,7 @@ Progress bar color changes when spent > budget
 
 ## Data Flow Diagram
 
-```
+\`\`\`
 User Creates Budget
     ↓
 validateInput (period constraints)
@@ -180,7 +180,7 @@ budgetsQuery Re-fetches ←→ spendingQuery Re-fetches
 Components Re-render (OverallBudgetCard / BudgetCard)
     ↓
 Display Status: Within/Over Budget
-```
+\`\`\`
 
 ---
 
@@ -199,7 +199,7 @@ Display Status: Within/Over Budget
 ## Common Operations
 
 ### Create Budget:
-```typescript
+\`\`\`typescript
 await createBudget({
   category_id: "cat-id",      // Optional for category budget
   amount: 500,
@@ -207,22 +207,22 @@ await createBudget({
   is_recurring: true,         // Only valid for weekly/monthly
   is_overall: false,          // false if category_id provided
 });
-```
+\`\`\`
 
 ### Update Budget:
-```typescript
+\`\`\`typescript
 await updateBudget({
   id: "budget-id",
   amount: 600,                // Change limit
   is_recurring: false,        // Toggle recurrence
 });
-```
+\`\`\`
 
 ### Delete Budget:
-```typescript
+\`\`\`typescript
 await deleteBudget("budget-id");
 // Logs deletion before removal
-```
+\`\`\`
 
 ---
 

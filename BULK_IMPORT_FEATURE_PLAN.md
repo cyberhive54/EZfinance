@@ -54,12 +54,12 @@
     - Placeholder: "Paste your CSV data here..."
 
 - **Example Format Section** (collapsible, shown by default):
-  ```
+  \`\`\`
   Type,Title,Amount,Transaction Date,Account,Category,From Account,To Account,Frequency,Notes
   EXPENSE,Groceries,150.50,2024-01-15,Checking,Groceries,,,none,Weekly shopping
   INCOME,Salary,5000.00,2024-01-01,Checking,Salary,,,monthly,Monthly salary
   TRANSFER,Office Move,1000,01-15-2024,,,My Checking,Savings Account,,
-  ```
+  \`\`\`
 
 - **Buttons**:
   - "Next" (disabled until CSV source selected and validated)
@@ -175,12 +175,12 @@
 **UI Elements**:
 
 **1. Import Summary Box** (Top):
-```
+\`\`\`
 Total Transactions: 25
 Valid & Ready: 20 ✓
 Has Errors: 5 ⚠️
 Checked for Import: 22 ☑️
-```
+\`\`\`
 
 **2. Main Table**:
 - **Columns**:
@@ -209,12 +209,12 @@ Checked for Import: 22 ☑️
 - Error fields highlighted in red
 - Show inline error message under each error field
 - Example:
-  ```
+  \`\`\`
   Type: [EXPENSE dropdown] ✓
   Title: [groceries input]
   Amount: [150.50 input] ✓
   Category: [input field] ⚠️ "Invalid: FOOD123 - Did you mean GROCERIES?"
-  ```
+  \`\`\`
 
 - Editing Options:
   - For dropdown fields (Type, Account, Category, Frequency): Show suggestions
@@ -251,9 +251,9 @@ Checked for Import: 22 ☑️
 
 ### **Valid Column Headers** (case-insensitive):
 
-```
+\`\`\`
 Type, Title, Amount, Transaction Date, Account, Category, From Account, To Account, Frequency, Notes
-```
+\`\`\`
 
 **Alternative Header Names** (system should recognize these):
 
@@ -273,36 +273,36 @@ Type, Title, Amount, Transaction Date, Account, Category, From Account, To Accou
 ### **CSV Examples**
 
 **Example 1: Simple Expenses**
-```csv
+\`\`\`csv
 Type,Title,Amount,Transaction Date,Account,Category,Frequency,Notes
 EXPENSE,Groceries,150.50,2024-01-15,My Checking,Groceries,none,Weekly shopping
 EXPENSE,Gas,75.00,2024-01-16,Credit Card,Transport,none,
 EXPENSE,Electricity Bill,120.00,2024-01-10,My Checking,Utilities,monthly,
-```
+\`\`\`
 
 **Example 2: Mixed with Income**
-```csv
+\`\`\`csv
 Type,Title,Amount,Date,Account,Category
 INCOME,Salary,5000.00,2024-01-01,My Checking,Salary
 INCOME,Freelance Project,1500.00,2024-01-15,My Checking,Freelance
 EXPENSE,Rent,2000.00,2024-01-01,My Checking,Housing
-```
+\`\`\`
 
 **Example 3: Transfers**
-```csv
+\`\`\`csv
 Type,Amount,From Account,To Account,Date,Notes
 TRANSFER,1000.00,My Checking,Savings Account,2024-01-20,Monthly savings
 TRANSFER,500.00,Credit Card,My Checking,2024-01-25,Payment
-```
+\`\`\`
 
 **Example 4: Mixed Everything**
-```csv
+\`\`\`csv
 Type,Title,Amount,Transaction Date,Account,Category,From Account,To Account,Frequency,Notes
 EXPENSE,Groceries,150.50,2024-01-15,My Checking,Groceries,,,none,Weekly shopping
 INCOME,Salary,5000.00,2024-01-01,My Checking,Salary,,,monthly,Monthly salary
 TRANSFER,,1000.00,2024-01-20,,,My Checking,Savings Account,,Monthly savings
 EXPENSE,Dining,85.00,01-16-2024,Credit Card,Dining,,,none,Dinner with friends
-```
+\`\`\`
 
 ---
 
@@ -444,7 +444,7 @@ EXPENSE,Dining,85.00,01-16-2024,Credit Card,Dining,,,none,Dinner with friends
 ### **Row-Level Validation** (checked for each transaction)
 
 **1. Required Fields Present**:
-```
+\`\`\`
 INCOME/EXPENSE:
   - Type ✓
   - Amount ✓
@@ -457,7 +457,7 @@ TRANSFER:
   - Amount ✓
   - Transaction Date ✓
   - From Account OR To Account (at least one) ✓
-```
+\`\`\`
 
 **2. Field Format Validation**:
 - Type: one of INCOME, EXPENSE, TRANSFER
@@ -500,7 +500,7 @@ TRANSFER:
 ## Auto-Correction Logic
 
 ### **Type Field**
-```
+\`\`\`
 Input → Output
 "income" → "INCOME"
 "Income" → "INCOME"
@@ -508,12 +508,12 @@ Input → Output
 "exp" → ERROR (too ambiguous)
 "expense" → "EXPENSE"
 "transfer" → "TRANSFER"
-```
+\`\`\`
 
 ### **Category & Account Fields**
 **Rule**: Case-insensitive matching, spaces → underscore
 
-```
+\`\`\`
 Input → Auto-Corrected
 "personal finance" → "PERSONAL_FINANCE"
 "Personal Finance" → "PERSONAL_FINANCE"
@@ -524,7 +524,7 @@ Input → Auto-Corrected
 "My Checking" → "MY_CHECKING"
 "MY CHECKING" → "MY_CHECKING"
 "my_checking" → "MY_CHECKING"
-```
+\`\`\`
 
 **Matching Algorithm**:
 1. Convert user input to uppercase
@@ -539,7 +539,7 @@ Input → Auto-Corrected
 - Example: User types "GROCERI" → Suggest "GROCERIES"
 
 ### **Amount Field**
-```
+\`\`\`
 Input → Output
 "1000" → 1000.00
 "1000.5" → 1000.50
@@ -547,7 +547,7 @@ Input → Output
 "$1000.50" → 1000.50
 "1000.50€" → 1000.50
 "1.000,50" → ERROR (European format not standard, ask for clarification)
-```
+\`\`\`
 
 ### **Date Field**
 **Format Detection Algorithm**:
@@ -560,17 +560,17 @@ Input → Output
 4. Validate each parse attempt
 5. If ambiguous (e.g., "01-02-2024"), use most common format for user's region or ask
 
-```
+\`\`\`
 Input → Parsed As → Output Date
 "2024-01-15" → ISO → 2024-01-15
 "01-15-2024" → US → 2024-01-15
 "15-01-2024" → EU → 2024-01-15
 "20240115" → YYYYMMDD → 2024-01-15
 "01-02-2024" → AMBIGUOUS → Ask user which format
-```
+\`\`\`
 
 ### **Frequency Field**
-```
+\`\`\`
 Input → Output
 "once" → "none"
 "none" → "none"
@@ -583,7 +583,7 @@ Input → Output
 "yearly" → "yearly"
 "annual" → "yearly"
 "y" → "yearly"
-```
+\`\`\`
 
 ---
 
@@ -593,7 +593,7 @@ Input → Output
 
 **1. Validation Errors** (specific to field):
 
-```javascript
+\`\`\`javascript
 {
   field: "category",
   code: "CATEGORY_NOT_FOUND",
@@ -602,38 +602,38 @@ Input → Output
   severity: "error", // "error" or "warning"
   editable: true, // User can fix inline
 }
-```
+\`\`\`
 
 **2. Mandatory Field Missing**:
-```
+\`\`\`
 "Type is required"
 "Amount is required"
 "Transaction Date is required"
 "Account is required for INCOME/EXPENSE"
 "From Account or To Account required for TRANSFER"
 "Category is required for INCOME/EXPENSE"
-```
+\`\`\`
 
 **3. Format Errors**:
-```
+\`\`\`
 "Amount must be a positive number (e.g., 150.50)"
 "Invalid date format - use YYYY-MM-DD or MM-DD-YYYY"
 "Frequency must be one of: none, daily, weekly, monthly, yearly"
-```
+\`\`\`
 
 **4. Business Logic Errors**:
-```
+\`\`\`
 "From Account cannot be same as To Account"
 "SALARY category is only valid for INCOME transactions"
 "Category 'TRANSPORT' is only valid for EXPENSE transactions"
 "Amount cannot be zero or negative"
 "Date cannot be in the future"
-```
+\`\`\`
 
 **5. Duplicate Errors**:
-```
+\`\`\`
 "Duplicate detected: Transaction with Amount=$150.50, Date=2024-01-15, Account=MY_CHECKING already exists"
-```
+\`\`\`
 
 ### **Inline Editing Interface**
 
@@ -648,7 +648,7 @@ Input → Output
 
 **Editing Experience**:
 
-```
+\`\`\`
 CATEGORY field (has error):
   ┌─────────────────────────────────────┐
   │ Category: [dropdown/input]          │
@@ -669,7 +669,7 @@ DATE field (has error):
   │ Date: [2024-01-15] (with calendar)  │
   │ ⚠️ "Invalid format detected"        │
   └─────────────────────────────────────┘
-```
+\`\`\`
 
 **Save Inline Edit**:
 1. User modifies field
@@ -680,13 +680,13 @@ DATE field (has error):
 6. If all errors fixed → Row becomes green and can be imported
 
 **Row State Transitions**:
-```
+\`\`\`
 Error Row (red) 
   ↓ User edits field
 Editing Mode (yellow) 
   ↓ User saves & field valid
 Valid Row (green) [or remains in Error if more errors exist]
-```
+\`\`\`
 
 ---
 
@@ -695,21 +695,21 @@ Valid Row (green) [or remains in Error if more errors exist]
 ### **Duplicate Comparison Logic**
 
 **For INCOME/EXPENSE**:
-```javascript
+\`\`\`javascript
 duplicate = existingTransaction where:
   amount == csvAmount AND
   transaction_date == csvDate AND
   account == csvAccount
-```
+\`\`\`
 
 **For TRANSFER**:
-```javascript
+\`\`\`javascript
 duplicate = existingTransaction where:
   amount == csvAmount AND
   transaction_date == csvDate AND
   from_account == csvFromAccount AND
   to_account == csvToAccount
-```
+\`\`\`
 
 **Note**: Title/Category/Description NOT compared (these can differ for same transaction)
 
@@ -762,43 +762,43 @@ duplicate = existingTransaction where:
 ### **Transfer Rules**
 
 **Rule 1**: At least one account required
-```
+\`\`\`
 ✓ From Account specified, To Account empty → Use primary account as To
 ✓ From Account empty, To Account specified → Use primary account as From
 ✗ Both empty → ERROR: "For TRANSFER, From Account or To Account required"
-```
+\`\`\`
 
 **Rule 2**: Accounts must be different
-```
+\`\`\`
 ✓ From: My Checking, To: Savings Account
 ✗ From: My Checking, To: My Checking → ERROR: "Cannot transfer to same account"
-```
+\`\`\`
 
 **Rule 3**: Both accounts must exist
-```
+\`\`\`
 ✗ From: INVALID_ACCOUNT, To: Savings Account → ERROR: "From Account not found"
-```
+\`\`\`
 
 ### **Transfer in CSV Examples**
 
 **Minimal (one account specified)**:
-```csv
+\`\`\`csv
 Type,Amount,To Account,Date
 TRANSFER,1000.00,Savings Account,2024-01-15
-```
+\`\`\`
 → From Account defaults to primary account
 
 **Full**:
-```csv
+\`\`\`csv
 Type,Amount,From Account,To Account,Date,Notes
 TRANSFER,1000.00,My Checking,Savings Account,2024-01-15,Monthly savings
-```
+\`\`\`
 
 **With Title**:
-```csv
+\`\`\`csv
 Type,Title,Amount,From Account,To Account,Date
 TRANSFER,Move to Savings,1000.00,My Checking,Savings Account,2024-01-15
-```
+\`\`\`
 
 ### **Database Side**:
 - Insert into transactions table with type="TRANSFER"
@@ -814,13 +814,13 @@ TRANSFER,Move to Savings,1000.00,My Checking,Savings Account,2024-01-15
 ### **New Tables/Modifications Needed**
 
 **1. transactions table** (if not already supporting transfers):
-```sql
+\`\`\`sql
 ALTER TABLE transactions ADD COLUMN to_account_id UUID REFERENCES accounts(id);
 -- For transfer transactions, account_id = from_account_id, to_account_id = destination
-```
+\`\`\`
 
 **2. Transaction History/Audit** (optional):
-```sql
+\`\`\`sql
 CREATE TABLE bulk_import_logs (
   id UUID PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id),
@@ -841,26 +841,26 @@ CREATE TABLE bulk_import_details (
   error_message TEXT,
   created_at TIMESTAMP DEFAULT NOW()
 );
-```
+\`\`\`
 
 ### **API Endpoints Needed**
 
 **1. Parse CSV**:
-```
+\`\`\`
 POST /api/bulk-import/parse
 Body: { csv: string, fileName?: string }
 Response: { headers: string[], rows: any[], rowCount: number }
-```
+\`\`\`
 
 **2. Detect Headers**:
-```
+\`\`\`
 POST /api/bulk-import/detect-headers
 Body: { headers: string[] }
 Response: { detected: boolean, mappedColumns: Record<string, string> }
-```
+\`\`\`
 
 **3. Validate Transactions**:
-```
+\`\`\`
 POST /api/bulk-import/validate
 Body: { transactions: any[], columnMapping: Record<string, string> }
 Response: {
@@ -868,10 +868,10 @@ Response: {
   invalid: { row: number, errors: Error[] }[],
   duplicates: { row: number, matchingTransaction: Transaction }[]
 }
-```
+\`\`\`
 
 **4. Import Transactions**:
-```
+\`\`\`
 POST /api/bulk-import/import
 Body: { transactions: Transaction[], skipDuplicates: boolean }
 Response: {
@@ -880,7 +880,7 @@ Response: {
   failed: number,
   details: ImportDetail[]
 }
-```
+\`\`\`
 
 ---
 
@@ -947,7 +947,7 @@ Response: {
 
 ### **Component Hierarchy**
 
-```
+\`\`\`
 BulkImportButton (Toolbar)
   ↓
 BulkImportModal (4-step wizard)
@@ -981,11 +981,11 @@ BulkImportModal (4-step wizard)
       │       ├─ FrequencyField
       │       └─ NotesField
       └─ ActionButtons (Import/Cancel)
-```
+\`\`\`
 
 ### **Hooks & Utilities**
 
-```
+\`\`\`
 Hooks:
 - useBulkImport() - Main state management
   - csvData: string | null
@@ -1022,11 +1022,11 @@ Services:
   - mapColumns(headers: string[]): ColumnMapping
   - validateBatch(rows: any[], mapping: ColumnMapping): ValidationResult[]
   - importTransactions(rows: Transaction[], skipDuplicates: boolean): Promise<ImportResult>
-```
+\`\`\`
 
 ### **State Management** (Zustand/Context)
 
-```typescript
+\`\`\`typescript
 type BulkImportState = {
   // Step 1: Source
   csvSource: 'file' | 'paste' | null;
@@ -1055,7 +1055,7 @@ type BulkImportState = {
   toggleRowSelection: (rowIndex: number) => void;
   reset: () => void;
 };
-```
+\`\`\`
 
 ---
 

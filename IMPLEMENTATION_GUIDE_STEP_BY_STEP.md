@@ -73,7 +73,7 @@ You need to run the following SQL migration in your Supabase dashboard:
 
 ### Migration File: `/supabase/migrations/20260201_add_profile_photo.sql`
 
-```sql
+\`\`\`sql
 -- Add profile photo columns to profiles table
 ALTER TABLE public.profiles 
 ADD COLUMN profile_photo_url TEXT DEFAULT NULL,
@@ -85,7 +85,7 @@ COMMENT ON COLUMN public.profiles.profile_photo_cloudinary_public_id IS 'Cloudin
 
 -- Create index for user lookups
 CREATE INDEX idx_profiles_user_id ON public.profiles(user_id);
-```
+\`\`\`
 
 ### Steps to Run the SQL:
 
@@ -111,7 +111,7 @@ CREATE INDEX idx_profiles_user_id ON public.profiles(user_id);
 
 The transaction_attachments table should already exist with this structure:
 
-```sql
+\`\`\`sql
 CREATE TABLE public.transaction_attachments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   transaction_id UUID NOT NULL REFERENCES public.transactions(id) ON DELETE CASCADE,
@@ -123,7 +123,7 @@ CREATE TABLE public.transaction_attachments (
   cloudinary_public_id TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
-```
+\`\`\`
 
 **Key Fields** (now being correctly populated):
 - `user_id`: User who uploaded the attachment ✓ (FIXED)
@@ -183,30 +183,30 @@ CREATE TABLE public.transaction_attachments (
 Check browser console for these debug logs:
 
 ### Transaction Attachments:
-```
+\`\`\`
 [v0] FORM SUBMIT: Starting attachment uploads
 [v0] FORM SUBMIT: Uploading file to Cloudinary
 [v0] FORM SUBMIT: File uploaded to Cloudinary, saving to database
 [v0] FORM SUBMIT: Attachment saved successfully
 [v0] ATTACHMENT SAVE: Insert payload (shows field names)
-```
+\`\`\`
 
 ### Profile Photos:
-```
+\`\`\`
 [v0] PROFILE PHOTO COMPONENT: File selected
 [v0] PROFILE PHOTO UPLOAD: Starting upload
 [v0] PROFILE PHOTO UPLOAD: Success
 [v0] PROFILE PHOTO UPLOAD MUTATION: Starting
 [v0] PROFILE PHOTO UPLOAD MUTATION: Saved to Cloudinary, updating database
 [v0] PROFILE PHOTO UPLOAD MUTATION: Complete
-```
+\`\`\`
 
 ### File Validation:
-```
+\`\`\`
 [v0] FILE VALIDATION: Invalid file type
 [v0] FILE VALIDATION: File size exceeds limit
 [v0] PROFILE PHOTO COMPONENT: File selected
-```
+\`\`\`
 
 ---
 
@@ -214,13 +214,13 @@ Check browser console for these debug logs:
 
 Images are now organized in Cloudinary:
 
-```
+\`\`\`
 ezfinance/
 ├── transactions/
 │   └── [attachment images for transactions]
 └── profile/
     └── [profile photo images]
-```
+\`\`\`
 
 ---
 

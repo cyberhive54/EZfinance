@@ -19,13 +19,13 @@
 - Delete operations with status
 
 **Console Output Example:**
-```
+\`\`\`
 [v0] ATTACHMENT UPLOAD: Starting upload process
 [v0] ATTACHMENT: Environment variables check
 [v0] ATTACHMENT: Sending upload request to Cloudinary
 [v0] ATTACHMENT SAVE: Starting attachment save to Supabase
 [v0] FORM SUBMIT: Starting attachment uploads
-```
+\`\`\`
 
 ---
 
@@ -70,28 +70,28 @@
 ## Immediate Next Steps
 
 ### 1. Test Attachment Uploads (Right Now)
-```
+\`\`\`
 Open browser DevTools Console (F12 or Cmd+Option+I)
 Go to Transactions
 Click "Add Transaction"
 Upload an image
 Watch the console for [v0] logs
-```
+\`\`\`
 
 ### 2. Follow Profile Photo Guide
-```
+\`\`\`
 Read: /PROFILE_PHOTO_SETUP_GUIDE.md
 Execute: Steps 1-7 in order
 Test: Follow testing checklist
-```
+\`\`\`
 
 ### 3. For Debugging Issues
-```
+\`\`\`
 Reference: /ATTACHMENT_DEBUGGING_GUIDE.md
 Search for your specific error
 Follow the solution steps
 Check console logs matching the pattern
-```
+\`\`\`
 
 ---
 
@@ -110,7 +110,7 @@ Check console logs matching the pattern
 ## Console Log Patterns to Look For
 
 ### Success Pattern
-```
+\`\`\`
 [v0] ATTACHMENT UPLOAD: Starting upload process
 [v0] ATTACHMENT: Environment variables check (cloudNameExists: true)
 [v0] ATTACHMENT: Sending upload request to Cloudinary
@@ -118,12 +118,12 @@ Check console logs matching the pattern
 [v0] ATTACHMENT: Upload successful
 [v0] ATTACHMENT SAVE: Starting attachment save to Supabase
 [v0] ATTACHMENT SAVE: Successfully saved
-```
+\`\`\`
 
 ### Error Pattern
-```
+\`\`\`
 [v0] ATTACHMENT ERROR: [specific error]
-```
+\`\`\`
 
 ---
 
@@ -131,11 +131,11 @@ Check console logs matching the pattern
 
 For profile photo feature, run this migration:
 
-```sql
+\`\`\`sql
 ALTER TABLE profiles 
 ADD COLUMN profile_photo_url TEXT DEFAULT NULL,
 ADD COLUMN profile_photo_cloudinary_public_id TEXT DEFAULT NULL;
-```
+\`\`\`
 
 Existing `transaction_attachments` table is already created.
 
@@ -143,11 +143,11 @@ Existing `transaction_attachments` table is already created.
 
 ## Environment Variables (Already Set)
 
-```
+\`\`\`
 VITE_CLOUDINARY_CLOUD_NAME=your_cloud_name
 VITE_CLOUDINARY_UPLOAD_PRESET=your_preset
 VITE_CLOUDINARY_API_KEY=your_api_key (optional)
-```
+\`\`\`
 
 ---
 

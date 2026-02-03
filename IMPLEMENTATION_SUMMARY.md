@@ -71,11 +71,11 @@
 
 ### 1. **Environment Setup - USER ACTION REQUIRED**
 Add these to your Vercel environment variables:
-```
+\`\`\`
 VITE_CLOUDINARY_CLOUD_NAME=your_cloud_name
 VITE_CLOUDINARY_UPLOAD_PRESET=your_upload_preset
 VITE_CLOUDINARY_API_KEY=your_api_key (optional, for advanced features)
-```
+\`\`\`
 
 To get these:
 1. Go to https://cloudinary.com/console
@@ -85,10 +85,10 @@ To get these:
 
 ### 2. **Database Migration - USER ACTION REQUIRED**
 Run the migration manually:
-```sql
+\`\`\`sql
 -- Copy contents of /supabase/migrations/20260201_add_frequency_attachments.sql
 -- Execute in your Supabase SQL editor
-```
+\`\`\`
 
 ### 3. **Cron Job Setup**
 For frequency-based transaction creation (future implementation):

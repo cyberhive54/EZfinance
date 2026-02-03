@@ -42,18 +42,18 @@ Note: Your **API Secret** should NEVER be exposed in frontend code - keep it on 
 
 In your project's environment variables (Vercel/local .env), add:
 
-```
+\`\`\`
 VITE_CLOUDINARY_CLOUD_NAME=your_cloud_name
 VITE_CLOUDINARY_UPLOAD_PRESET=ezfinance_transactions
 VITE_CLOUDINARY_API_KEY=your_api_key
-```
+\`\`\`
 
 Example:
-```
+\`\`\`
 VITE_CLOUDINARY_CLOUD_NAME=djx9nq1v2
 VITE_CLOUDINARY_UPLOAD_PRESET=ezfinance_transactions
 VITE_CLOUDINARY_API_KEY=123456789abcdef
-```
+\`\`\`
 
 ## Will Everything Work After Adding These Keys?
 
@@ -75,7 +75,7 @@ After adding the three environment variables, the image upload functionality sho
   - Associated RLS policies
 
 Run this SQL in your Supabase dashboard:
-```sql
+\`\`\`sql
 -- Add frequency column
 ALTER TABLE transactions ADD COLUMN frequency TEXT DEFAULT 'none';
 
@@ -106,7 +106,7 @@ CREATE POLICY "Users can insert own attachments"
 CREATE POLICY "Users can delete own attachments"
   ON transaction_attachments FOR DELETE
   USING (auth.uid() = user_id);
-```
+\`\`\`
 
 ## Troubleshooting
 
