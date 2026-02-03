@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { ParsedCSVRow, HeaderMapping } from "@/types/bulkImport";
 import { Account, Goal } from "@/types/database";
-import { validateRow, ValidationContext } from "./csvValidator";
+import { validateRow, ValidationContext, normalizeFieldName, normalizeTransactionType, parseCustomDate } from "./csvValidator";
 
 export interface ImportResult {
   success: boolean;
@@ -130,19 +130,27 @@ async function importRegularTransaction(
   categories: any[],
   goals: Goal[]
 ) {
-  const account = accounts.find((a) => a.id === mappedData.account_id);
+  // Normalize account name for lookup (same as validation)
+  const accountInput = normalizeFieldName(String(mappedData.account_id || ""));
+  const account = accounts.find((a) => 
+    a.id === accountInput || normalizeFieldName(a.name) === accountInput
+  );
   if (!account) {
-    throw new Error(`Account ${mappedData.account_id} not found`);
+    throw new Error(`Account "${accountInput}" not found`);
   }
 
-  const category = mappedData.category
-    ? categories.find((c) => c.name.toLowerCase() === String(mappedData.category).toLowerCase())
+  // Normalize category name for lookup
+  const categoryInput = mappedData.category ? normalizeFieldName(String(mappedData.category)) : null;
+  const category = categoryInput
+    ? categories.find((c) => normalizeFieldName(c.name) === categoryInput)
     : null;
 
   let goal = null;
   let goalAmount = null;
   if (mappedData.goal_name) {
-    goal = goals.find((g) => g.name === mappedData.goal_name);
+    // Normalize goal name for lookup
+    const goalInput = normalizeFieldName(String(mappedData.goal_name));
+    goal = goals.find((g) => normalizeFieldName(g.name) === goalInput);
     if (!goal) {
       throw new Error(`Goal ${mappedData.goal_name} not found`);
     }
@@ -153,17 +161,24 @@ async function importRegularTransaction(
     }
   }
 
+  // Parse date from various formats
+  const dateObj = parseCustomDate(String(mappedData.date));
+  const formattedDate = dateObj ? dateObj.toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
+
+  // Normalize transaction type
+  const normalizedType = normalizeTransactionType(String(mappedData.type || "expense")) || "expense";
+
   // Insert transaction
   const { error: txError } = await supabase.from("transactions").insert({
     user_id: userId,
-    account_id: mappedData.account_id,
+    account_id: account.id, // Use the actual account ID found from lookup
     category_id: category?.id || null,
-    type: mappedData.type || "expense",
+    type: normalizedType,
     amount: parseFloat(String(mappedData.amount)),
     currency: account.currency || "USD",
     description: mappedData.description || null,
     notes: mappedData.notes || null,
-    transaction_date: mappedData.date,
+    transaction_date: formattedDate,
     frequency: mappedData.frequency || "none",
     goal_id: goal?.id || null,
     goal_amount: goalAmount,
@@ -181,7 +196,7 @@ async function importRegularTransaction(
   }
 
   const { error: balError } = await supabase.rpc("update_account_balance", {
-    account_id: mappedData.account_id,
+    account_id: account.id, // Use the actual account ID found from lookup
     amount_change: balanceChange,
   });
 
@@ -218,28 +233,40 @@ async function importTransferTransaction(
   accounts: Account[],
   categories: any[]
 ) {
-  const fromAccount = accounts.find((a) => a.id === mappedData.from_account);
-  const toAccount = accounts.find((a) => a.id === mappedData.to_account);
+  // Normalize account names for lookup (same as validation)
+  const fromInput = normalizeFieldName(String(mappedData.from_account || ""));
+  const toInput = normalizeFieldName(String(mappedData.to_account || ""));
+  
+  const fromAccount = accounts.find((a) => 
+    a.id === fromInput || normalizeFieldName(a.name) === fromInput
+  );
+  const toAccount = accounts.find((a) => 
+    a.id === toInput || normalizeFieldName(a.name) === toInput
+  );
 
   if (!fromAccount || !toAccount) {
-    throw new Error("Invalid transfer accounts");
+    throw new Error(`Invalid transfer accounts: from="${fromInput}" to="${toInput}"`);
   }
 
   const amount = parseFloat(String(mappedData.amount));
   const date = mappedData.date;
   const description = mappedData.description || "Transfer";
 
+  // Parse date from various formats
+  const dateObj = parseCustomDate(String(mappedData.date));
+  const formattedDate = dateObj ? dateObj.toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
+
   // Create sender transaction
   const { data: senderTx, error: senderError } = await supabase
     .from("transactions")
     .insert({
       user_id: userId,
-      account_id: mappedData.from_account,
+      account_id: fromAccount.id, // Use the actual account ID found from lookup
       type: "transfer-sender",
       amount,
       currency: fromAccount.currency || "USD",
       description,
-      transaction_date: date,
+      transaction_date: formattedDate,
       frequency: "none",
     })
     .select()
@@ -252,12 +279,12 @@ async function importTransferTransaction(
     .from("transactions")
     .insert({
       user_id: userId,
-      account_id: mappedData.to_account,
+      account_id: toAccount.id, // Use the actual account ID found from lookup
       type: "transfer-receiver",
       amount,
       currency: toAccount.currency || "USD",
       description,
-      transaction_date: date,
+      transaction_date: formattedDate,
       frequency: "none",
     })
     .select()
@@ -276,14 +303,14 @@ async function importTransferTransaction(
 
   // Update both account balances
   const { error: senderBalError } = await supabase.rpc("update_account_balance", {
-    account_id: mappedData.from_account,
+    account_id: fromAccount.id, // Use the actual account ID found from lookup
     amount_change: -amount,
   });
 
   if (senderBalError) throw senderBalError;
 
   const { error: receiverBalError } = await supabase.rpc("update_account_balance", {
-    account_id: mappedData.to_account,
+    account_id: toAccount.id, // Use the actual account ID found from lookup
     amount_change: amount,
   });
 
@@ -308,15 +335,17 @@ function extractMappedData(row: ParsedCSVRow, mapping: HeaderMapping) {
           mapped[field] = String(value).trim();
           break;
         case "type":
-          // Normalize type names
-          const typeValue = String(value).toLowerCase().trim();
-          if (["transfer-sender", "transfer receiver", "transfer sender"].includes(typeValue)) {
-            mapped[field] = "transfer-sender";
-          } else if (["transfer-receiver", "transfer-receiver"].includes(typeValue)) {
-            mapped[field] = "transfer-receiver";
-          } else {
-            mapped[field] = typeValue as "income" | "expense";
-          }
+          // Use the same normalization as validation
+          const normalized = normalizeTransactionType(String(value));
+          mapped[field] = normalized || String(value).toLowerCase().trim();
+          break;
+        case "account_id":
+        case "from_account":
+        case "to_account":
+        case "category":
+        case "goal_name":
+          // Normalize field names (spaces to underscores)
+          mapped[field] = normalizeFieldName(String(value));
           break;
         default:
           mapped[field] = String(value).trim();
