@@ -1506,9 +1506,9 @@ export default function Transactions() {
                     </td>
                     <td className="px-4 py-3 text-right font-semibold">
                       <span
-                        className={transaction.type === "income" ? "text-accent" : "text-destructive"}
+                        className={transaction.type === "income" || transaction.type === "transfer-receiver" ? "text-accent" : "text-destructive"}
                       >
-                        {transaction.type === "income" ? "+" : "-"}
+                        {transaction.type === "income" || transaction.type === "transfer-receiver" ? "+" : "-"}
                         {formatCurrency(transaction.amount, transaction.currency)}
                       </span>
                     </td>
