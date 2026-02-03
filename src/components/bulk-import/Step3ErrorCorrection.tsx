@@ -2,10 +2,12 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
 import { ParsedCSVRow, HeaderMapping, ValidationError } from "@/types/bulkImport";
 import { validateRow } from "@/utils/csvValidator";
 import { Account, Category, Goal } from "@/types/database";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Progress } from "@/components/ui/progress";
 
 interface Step3ErrorCorrectionProps {
   csvData: ParsedCSVRow[];
@@ -15,7 +17,7 @@ interface Step3ErrorCorrectionProps {
   accounts: Account[];
   categories: Category[];
   goals: Goal[];
-  onImport: (data: ParsedCSVRow[], selectedRows: Set<number>) => Promise<void>;
+  onImport: (data: ParsedCSVRow[], selectedRows: Set<number>, onProgress?: (progress: number) => void) => Promise<void>;
   isImporting?: boolean;
 }
 
@@ -39,6 +41,7 @@ export default function Step3ErrorCorrection({
     Map<number, ValidationError[]>
   >(new Map());
   const [reviewed, setReviewed] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
 
   // Get goal names
   const goalNames = goals.map((g) => g.name);
@@ -109,7 +112,9 @@ export default function Step3ErrorCorrection({
 
   const handleImport = async () => {
     if (!canImport) return;
-    await onImport(csvData, selectedRows);
+    await onImport(csvData, selectedRows, (progress) => {
+      setImportProgress(progress);
+    });
   };
 
   // Get columns to display (those that aren't skipped)
@@ -136,6 +141,14 @@ export default function Step3ErrorCorrection({
     return !validationResults.has(rowIndex);
   };
 
+  const handleUnselectErrorRows = () => {
+    const newSelected = new Set(selectedRows);
+    validationResults.forEach((_, rowIndex) => {
+      newSelected.delete(rowIndex);
+    });
+    onSelectedRowsChange(newSelected);
+  };
+
   // Map field names to display labels
   const getFieldLabel = (field: string | any) => {
     const fieldLabelMap: Record<string, string> = {
@@ -149,7 +162,7 @@ export default function Step3ErrorCorrection({
       "description": "Title",
       "notes": "Notes",
       "goal_name": "Goal Name",
-      "deduction_type": "Deduction Type",
+      "exchange_from_goal": "Exchange Amount",
       "frequency": "Frequency",
     };
     
@@ -159,14 +172,23 @@ export default function Step3ErrorCorrection({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Import Status */}
-      {isImporting && (
-        <Alert className="border-blue-500/30 bg-blue-500/5">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <AlertDescription>Importing transactions...</AlertDescription>
-        </Alert>
-      )}
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Import Status with Progress Bar */}
+        {isImporting && (
+          <Alert className="border-blue-500/30 bg-blue-500/5">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <AlertDescription>Importing {selectedRows.size} transactions...</AlertDescription>
+              </div>
+              <div className="space-y-1">
+                <Progress value={importProgress} className="h-2" />
+                <p className="text-xs text-muted-foreground text-center">{Math.round(importProgress)}% complete</p>
+              </div>
+            </div>
+          </Alert>
+        )}
 
       {/* Review Section */}
       {!reviewed && (
@@ -206,12 +228,23 @@ export default function Step3ErrorCorrection({
 
       {/* Error Details */}
       {reviewed && hasErrors && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {validationResults.size} row(s) have errors. Click cells to edit. Green = valid, Red = error.
-          </AlertDescription>
-        </Alert>
+        <div className="space-y-2">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {validationResults.size} row(s) have errors. Click cells to edit. Green = valid, Red = error.
+            </AlertDescription>
+          </Alert>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleUnselectErrorRows}
+            className="w-full gap-2"
+          >
+            <X className="h-4 w-4" />
+            Unselect Error Rows
+          </Button>
+        </div>
       )}
 
       {/* Success Message */}
@@ -272,7 +305,11 @@ export default function Step3ErrorCorrection({
                         }
                       />
                     </td>
-                    <td className="p-2 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                    <td className={`p-2 font-mono text-xs font-bold whitespace-nowrap transition-colors ${
+                      rowHasErrors
+                        ? "bg-red-500/20 text-red-700"
+                        : "text-muted-foreground"
+                    }`}>
                       {rowIdx + 1}
                     </td>
                     {displayColumns.map((col) => {
@@ -282,8 +319,9 @@ export default function Step3ErrorCorrection({
                         editingCell?.rowIndex === rowIdx &&
                         editingCell?.column === col;
                       const status = getCellStatus(rowIdx, col);
+                      const hasError = cellErrors.length > 0;
 
-                      return (
+                      const cellContent = (
                         <td
                           key={col}
                           className={`p-2 border-l font-mono text-xs cursor-pointer transition-colors ${
@@ -294,7 +332,6 @@ export default function Step3ErrorCorrection({
                                 : "hover:bg-muted/50"
                           }`}
                           onClick={() => handleCellClick(rowIdx, col, value)}
-                          title={cellErrors.map((e) => e.message).join("\n")}
                         >
                           {isEditing ? (
                             <input
@@ -320,13 +357,28 @@ export default function Step3ErrorCorrection({
                               <span className="truncate">{String(value || "")}</span>
                             </div>
                           )}
-                          {cellErrors.length > 0 && !isEditing && (
-                            <div className="text-xs mt-1 text-red-700 italic max-w-xs truncate">
-                              {cellErrors[0].message}
-                            </div>
-                          )}
                         </td>
                       );
+
+                      // Wrap in Tooltip if there are errors
+                      if (hasError && !isEditing) {
+                        return (
+                          <Tooltip key={col} delayDuration={100}>
+                            <TooltipTrigger asChild>
+                              {cellContent}
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs">
+                              <div className="space-y-1">
+                                {cellErrors.map((err, idx) => (
+                                  <p key={idx} className="text-xs">{err.message}</p>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      }
+
+                      return cellContent;
                     })}
                   </tr>
                 );
@@ -336,36 +388,37 @@ export default function Step3ErrorCorrection({
         </div>
       )}
 
-      {/* Action Buttons */}
-      <div className="flex gap-2 flex-col sm:flex-row">
-        {reviewed && !canImport && (
-          <Button
-            variant="outline"
-            onClick={() => {
-              setReviewed(false);
-              setValidationResults(new Map());
-            }}
-            className="flex-1"
-          >
-            Re-review
-          </Button>
-        )}
-        <Button
-          onClick={handleImport}
-          disabled={!canImport || isImporting}
-          className="flex-1"
-          size="lg"
-        >
-          {isImporting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Importing...
-            </>
-          ) : (
-            "Import Transactions"
+        {/* Action Buttons */}
+        <div className="flex gap-2 flex-col sm:flex-row">
+          {reviewed && !canImport && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setReviewed(false);
+                setValidationResults(new Map());
+              }}
+              className="flex-1"
+            >
+              Re-review
+            </Button>
           )}
-        </Button>
+          <Button
+            onClick={handleImport}
+            disabled={!canImport || isImporting}
+            className="flex-1"
+            size="lg"
+          >
+            {isImporting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Importing...
+              </>
+            ) : (
+              "Import Transactions"
+            )}
+          </Button>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

@@ -21,7 +21,8 @@ export async function importBulkTransactions(
   selectedRowIndices: Set<number>,
   accounts: Account[],
   categories: any[],
-  goals: Goal[]
+  goals: Goal[],
+  onProgress?: (progress: number) => void
 ): Promise<ImportResult> {
   const errors: { rowIndex: number; message: string }[] = [];
   let successfulImports = 0;
@@ -59,7 +60,8 @@ export async function importBulkTransactions(
     });
 
     // Import valid rows
-    for (const item of validatedRows) {
+    for (let i = 0; i < validatedRows.length; i++) {
+      const item = validatedRows[i];
       try {
         const mappedData = item.mappedData;
         const transactionType = mappedData.type as
@@ -93,6 +95,12 @@ export async function importBulkTransactions(
           rowIndex: item.rowIndex + 1,
           message: `Failed to import: ${err instanceof Error ? err.message : "Unknown error"}`,
         });
+      }
+
+      // Update progress
+      if (onProgress) {
+        const progress = Math.round(((i + 1) / validatedRows.length) * 100);
+        onProgress(progress);
       }
     }
 
@@ -130,10 +138,10 @@ async function importRegularTransaction(
   categories: any[],
   goals: Goal[]
 ) {
-  // Normalize account name for lookup (same as validation)
-  const accountInput = normalizeFieldName(String(mappedData.account_id || ""));
+  // Find account by exact name match (case-insensitive)
+  const accountInput = String(mappedData.account_id || "").trim();
   const account = accounts.find((a) => 
-    a.id === accountInput || normalizeFieldName(a.name) === accountInput
+    a.name.toLowerCase() === accountInput.toLowerCase()
   );
   if (!account) {
     throw new Error(`Account "${accountInput}" not found`);
@@ -147,17 +155,23 @@ async function importRegularTransaction(
 
   let goal = null;
   let goalAmount = null;
-  if (mappedData.goal_name) {
+  let goalAllocationMode = null; // "deduct" or "contribute"
+  
+  if (mappedData.goal_name && mappedData.exchange_from_goal) {
     // Normalize goal name for lookup
     const goalInput = normalizeFieldName(String(mappedData.goal_name));
     goal = goals.find((g) => normalizeFieldName(g.name) === goalInput);
     if (!goal) {
       throw new Error(`Goal ${mappedData.goal_name} not found`);
     }
-    // Calculate goal amount based on deduction type
-    goalAmount = mappedData.amount; // Default to full amount
-    if (mappedData.deduction_type === "split") {
-      goalAmount = mappedData.amount / 2; // For split, use half
+
+    // Auto-determine exchange mode based on transaction type
+    if (mappedData.type === "income") {
+      goalAllocationMode = "contribute"; // Income contributes to goal
+      goalAmount = parseFloat(String(mappedData.exchange_from_goal));
+    } else if (mappedData.type === "expense") {
+      goalAllocationMode = "deduct"; // Expense deducts from goal
+      goalAmount = parseFloat(String(mappedData.exchange_from_goal));
     }
   }
 
@@ -171,7 +185,7 @@ async function importRegularTransaction(
   // Insert transaction
   const { error: txError } = await supabase.from("transactions").insert({
     user_id: userId,
-    account_id: account.id, // Use the actual account ID found from lookup
+    account_id: account.id,
     category_id: category?.id || null,
     type: normalizedType,
     amount: parseFloat(String(mappedData.amount)),
@@ -182,7 +196,7 @@ async function importRegularTransaction(
     frequency: mappedData.frequency || "none",
     goal_id: goal?.id || null,
     goal_amount: goalAmount,
-    goal_allocation_type: mappedData.deduction_type || null,
+    goal_allocation_type: goalAllocationMode || mappedData.deduction_type || null,
   });
 
   if (txError) throw txError;
@@ -196,7 +210,7 @@ async function importRegularTransaction(
   }
 
   const { error: balError } = await supabase.rpc("update_account_balance", {
-    account_id: account.id, // Use the actual account ID found from lookup
+    account_id: account.id,
     amount_change: balanceChange,
   });
 
@@ -211,10 +225,15 @@ async function importRegularTransaction(
       .single();
 
     if (currentGoal) {
-      const newAmount = Math.max(
-        0,
-        currentGoal.current_amount - goalAmount // Deduct from goal
-      );
+      let newAmount;
+      if (goalAllocationMode === "contribute") {
+        // Add to goal
+        newAmount = currentGoal.current_amount + goalAmount;
+      } else {
+        // Deduct from goal (default)
+        newAmount = Math.max(0, currentGoal.current_amount - goalAmount);
+      }
+      
       await supabase
         .from("goals")
         .update({ current_amount: newAmount })
@@ -233,15 +252,15 @@ async function importTransferTransaction(
   accounts: Account[],
   categories: any[]
 ) {
-  // Normalize account names for lookup (same as validation)
-  const fromInput = normalizeFieldName(String(mappedData.from_account || ""));
-  const toInput = normalizeFieldName(String(mappedData.to_account || ""));
+  // Find accounts by exact name match (case-insensitive)
+  const fromInput = String(mappedData.from_account || "").trim();
+  const toInput = String(mappedData.to_account || "").trim();
   
   const fromAccount = accounts.find((a) => 
-    a.id === fromInput || normalizeFieldName(a.name) === fromInput
+    a.name.toLowerCase() === fromInput.toLowerCase()
   );
   const toAccount = accounts.find((a) => 
-    a.id === toInput || normalizeFieldName(a.name) === toInput
+    a.name.toLowerCase() === toInput.toLowerCase()
   );
 
   if (!fromAccount || !toAccount) {
@@ -292,14 +311,7 @@ async function importTransferTransaction(
 
   if (receiverError) throw receiverError;
 
-  // Link them in transfer_transactions table
-  const { error: linkError } = await supabase.from("transfer_transactions").insert({
-    from_transaction_id: senderTx.id,
-    to_transaction_id: receiverTx.id,
-    transfer_type: "peer-to-peer",
-  });
-
-  if (linkError) throw linkError;
+  // No need to link transfers in separate table - they're tracked by sender/receiver types
 
   // Update both account balances
   const { error: senderBalError } = await supabase.rpc("update_account_balance", {
@@ -339,9 +351,16 @@ function extractMappedData(row: ParsedCSVRow, mapping: HeaderMapping) {
           const normalized = normalizeTransactionType(String(value));
           mapped[field] = normalized || String(value).toLowerCase().trim();
           break;
+        case "exchange_from_goal":
+          // Parse as number
+          mapped[field] = parseFloat(String(value));
+          break;
         case "account_id":
         case "from_account":
         case "to_account":
+          // Keep account names as-is (exact match case-insensitive in validation)
+          mapped[field] = String(value).trim();
+          break;
         case "category":
         case "goal_name":
           // Normalize field names (spaces to underscores)

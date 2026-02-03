@@ -9,7 +9,7 @@ export type HeaderField =
   | "description"
   | "notes"
   | "goal_name"
-  | "deduction_type"
+  | "exchange_from_goal"
   | "frequency"
   | "skip";
 
@@ -41,7 +41,7 @@ export interface BulkImportRow {
     description: string;
     notes: string;
     goal_name: string;
-    deduction_type: "full" | "split";
+    exchange_from_goal: number;
     frequency: string;
   }>;
   errors: ValidationError[];

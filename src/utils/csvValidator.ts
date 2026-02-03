@@ -63,6 +63,16 @@ export function validateRow(
         message: `Amount must be a positive number, got: ${amountValue}`,
         rowValue: amountValue,
       });
+    } else {
+      // Check decimal places (max 2)
+      const decimalPlaces = String(amountValue).split('.')[1]?.length || 0;
+      if (decimalPlaces > 2) {
+        errors.push({
+          field: "amount",
+          message: `Amount can have maximum 2 decimal places, got: ${decimalPlaces}. Value: ${amountValue}`,
+          rowValue: amountValue,
+        });
+      }
     }
   } else {
     errors.push({
@@ -88,10 +98,10 @@ export function validateRow(
   // Validate account (for non-transfer transactions)
   if (transactionType && !transactionType.startsWith("transfer")) {
     if (mappedValues.account_id !== undefined && mappedValues.account_id !== "") {
-      const accountInput = normalizeFieldName(String(mappedValues.account_id));
-      // Try to find account by normalized name or ID
+      const accountInput = String(mappedValues.account_id).trim();
+      // Find account by exact name match (case-insensitive)
       const account = context.accounts.find((a) => 
-        a.id === accountInput || normalizeFieldName(a.name) === accountInput
+        a.name.toLowerCase() === accountInput.toLowerCase()
       );
       
       if (!account) {
@@ -114,14 +124,15 @@ export function validateRow(
   if (transactionType?.startsWith("transfer")) {
     // Validate from_account
     if (mappedValues.from_account !== undefined && mappedValues.from_account !== "") {
-      const fromInput = normalizeFieldName(String(mappedValues.from_account));
+      const fromInput = String(mappedValues.from_account).trim();
       const fromAccount = context.accounts.find((a) => 
-        a.id === fromInput || normalizeFieldName(a.name) === fromInput
+        a.name.toLowerCase() === fromInput.toLowerCase()
       );
       if (!fromAccount) {
+        const suggestedAccounts = context.accounts.map((a) => a.name).join(", ");
         errors.push({
           field: "from_account",
-          message: `From account "${fromInput}" not found`,
+          message: `From account "${fromInput}" not found. Available: ${suggestedAccounts}`,
           rowValue: fromInput,
         });
       }
@@ -134,14 +145,15 @@ export function validateRow(
 
     // Validate to_account
     if (mappedValues.to_account !== undefined && mappedValues.to_account !== "") {
-      const toInput = normalizeFieldName(String(mappedValues.to_account));
+      const toInput = String(mappedValues.to_account).trim();
       const toAccount = context.accounts.find((a) => 
-        a.id === toInput || normalizeFieldName(a.name) === toInput
+        a.name.toLowerCase() === toInput.toLowerCase()
       );
       if (!toAccount) {
+        const suggestedAccounts = context.accounts.map((a) => a.name).join(", ");
         errors.push({
           field: "to_account",
-          message: `To account "${toInput}" not found`,
+          message: `To account "${toInput}" not found. Available: ${suggestedAccounts}`,
           rowValue: toInput,
         });
       }
@@ -154,8 +166,8 @@ export function validateRow(
 
     // Validate from != to
     if (mappedValues.from_account && mappedValues.to_account) {
-      const fromNorm = normalizeFieldName(String(mappedValues.from_account));
-      const toNorm = normalizeFieldName(String(mappedValues.to_account));
+      const fromNorm = String(mappedValues.from_account).trim().toLowerCase();
+      const toNorm = String(mappedValues.to_account).trim().toLowerCase();
       if (fromNorm === toNorm) {
         errors.push({
           field: "to_account",
@@ -166,19 +178,35 @@ export function validateRow(
     }
   }
 
-  // Validate category (optional but if provided, must exist)
+  // Validate category (optional but if provided, must exist and match transaction type)
   if (mappedValues.category !== undefined && mappedValues.category !== "") {
     const categoryValue = String(mappedValues.category).trim();
-    if (!context.categories.some((c) => c.name.toLowerCase() === categoryValue.toLowerCase())) {
-      const suggestedCategories = context.categories
-        .filter((c) => c.type === transactionType?.includes("income") ? "income" : "expense")
-        .map((c) => c.name)
-        .join(", ");
+    
+    // For transfers, categories should not be set
+    if (transactionType?.startsWith("transfer")) {
       errors.push({
         field: "category",
-        message: `Category "${categoryValue}" not found. Available: ${suggestedCategories}`,
+        message: "Categories cannot be set for transfer transactions",
         rowValue: categoryValue,
       });
+    } else {
+      // For income/expense, validate category matches type
+      const expectedType = transactionType === "income" ? "income" : "expense";
+      const matchingCategory = context.categories.find(
+        (c) => c.name.toLowerCase() === categoryValue.toLowerCase() && c.type === expectedType
+      );
+      
+      if (!matchingCategory) {
+        const suggestedCategories = context.categories
+          .filter((c) => c.type === expectedType)
+          .map((c) => c.name)
+          .join(", ");
+        errors.push({
+          field: "category",
+          message: `Category "${categoryValue}" not found for ${expectedType} transactions. Available: ${suggestedCategories || "none"}`,
+          rowValue: categoryValue,
+        });
+      }
     }
   }
 
@@ -217,15 +245,75 @@ export function validateRow(
     }
   }
 
-  // Validate frequency (optional)
+  // Validate frequency (optional, case-insensitive exact match)
   if (mappedValues.frequency !== undefined && mappedValues.frequency !== "") {
     const frequency = String(mappedValues.frequency).trim().toLowerCase();
-    if (!["none", "daily", "weekly", "monthly", "yearly"].includes(frequency)) {
+    if (!["daily", "weekly", "monthly", "yearly"].includes(frequency)) {
       errors.push({
         field: "frequency",
-        message: `Invalid frequency: ${frequency}. Must be: none, daily, weekly, monthly, or yearly`,
+        message: `Invalid frequency: "${frequency}". Must be exactly: daily, weekly, monthly, or yearly (case-insensitive)`,
         rowValue: frequency,
       });
+    }
+  }
+
+  // Validate transfer-only fields for income/expense (should be empty)
+  if (!transactionType?.startsWith("transfer")) {
+    // For income/expense, from_account and to_account should be empty
+    if (mappedValues.from_account && String(mappedValues.from_account).trim() !== "") {
+      errors.push({
+        field: "from_account",
+        message: `from_account should only be used for transfer transactions, not ${transactionType || "unknown"}`,
+        rowValue: mappedValues.from_account,
+      });
+    }
+    if (mappedValues.to_account && String(mappedValues.to_account).trim() !== "") {
+      errors.push({
+        field: "to_account",
+        message: `to_account should only be used for transfer transactions, not ${transactionType || "unknown"}`,
+        rowValue: mappedValues.to_account,
+      });
+    }
+  }
+
+  // Validate goal-related fields
+  const hasGoal = mappedValues.goal_name !== undefined && mappedValues.goal_name !== "";
+  const hasExchange = mappedValues.exchange_from_goal !== undefined && mappedValues.exchange_from_goal !== "";
+
+  // Validate: exchange_from_goal requires goal_name
+  if (hasExchange && !hasGoal) {
+    errors.push({
+      field: "exchange_from_goal",
+      message: "Exchange amount requires goal_name to be specified",
+      rowValue: mappedValues.exchange_from_goal,
+    });
+  }
+
+  // Validate exchange_from_goal amount
+  if (hasExchange) {
+    const exchangeAmount = parseFloat(String(mappedValues.exchange_from_goal));
+    if (isNaN(exchangeAmount) || exchangeAmount <= 0) {
+      errors.push({
+        field: "exchange_from_goal",
+        message: `Exchange amount must be a positive number, got: ${mappedValues.exchange_from_goal}`,
+        rowValue: mappedValues.exchange_from_goal,
+      });
+    } else if (exchangeAmount >= mappedValues.amount) {
+      errors.push({
+        field: "exchange_from_goal",
+        message: `Exchange amount (${exchangeAmount}) must be less than transaction amount (${mappedValues.amount})`,
+        rowValue: mappedValues.exchange_from_goal,
+      });
+    } else {
+      // Check decimal places
+      const decimalPlaces = String(mappedValues.exchange_from_goal).split('.')[1]?.length || 0;
+      if (decimalPlaces > 2) {
+        errors.push({
+          field: "exchange_from_goal",
+          message: `Exchange amount can have maximum 2 decimal places, got: ${decimalPlaces}. Value: ${mappedValues.exchange_from_goal}`,
+          rowValue: mappedValues.exchange_from_goal,
+        });
+      }
     }
   }
 

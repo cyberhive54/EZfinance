@@ -32,8 +32,8 @@ const AVAILABLE_FIELDS: { value: HeaderField; label: string }[] = [
   { value: "amount", label: "Amount" },
   { value: "description", label: "Title" },
   { value: "notes", label: "Notes" },
-  { value: "goal_name", label: "Goal Name" },
-  { value: "deduction_type", label: "Deduction Type (full/split)" },
+  { value: "goal_name", label: "Goal Name (exchanges with goal)" },
+  { value: "exchange_from_goal", label: "Exchange Amount (auto: income→contribute, expense→deduct)" },
   { value: "frequency", label: "Frequency" },
 ];
 
