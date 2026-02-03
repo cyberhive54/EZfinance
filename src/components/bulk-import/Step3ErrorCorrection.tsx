@@ -136,6 +136,28 @@ export default function Step3ErrorCorrection({
     return !validationResults.has(rowIndex);
   };
 
+  // Map field names to display labels
+  const getFieldLabel = (field: string | any) => {
+    const fieldLabelMap: Record<string, string> = {
+      "date": "Date",
+      "account_id": "Account (Payment Method)",
+      "from_account": "From Account",
+      "to_account": "To Account",
+      "type": "Type",
+      "category": "Category",
+      "amount": "Amount",
+      "description": "Title",
+      "notes": "Notes",
+      "goal_name": "Goal Name",
+      "deduction_type": "Deduction Type",
+      "frequency": "Frequency",
+    };
+    
+    // Get the mapped field value for this column
+    const mappedField = headerMapping[field];
+    return fieldLabelMap[mappedField as string] || field;
+  };
+
   return (
     <div className="space-y-6">
       {/* Import Status */}
@@ -223,7 +245,7 @@ export default function Step3ErrorCorrection({
                 <th className="p-2 text-left font-mono text-xs">Row</th>
                 {displayColumns.map((col) => (
                   <th key={col} className="p-2 text-left font-mono text-xs whitespace-nowrap">
-                    {col}
+                    {getFieldLabel(col)}
                   </th>
                 ))}
               </tr>

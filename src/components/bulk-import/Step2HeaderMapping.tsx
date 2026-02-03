@@ -24,13 +24,13 @@ interface Step2HeaderMappingProps {
 const AVAILABLE_FIELDS: { value: HeaderField; label: string }[] = [
   { value: "skip", label: "Skip" },
   { value: "date", label: "Date" },
-  { value: "account_id", label: "Account" },
+  { value: "account_id", label: "Account (Payment Method)" },
   { value: "from_account", label: "From Account (Transfer)" },
   { value: "to_account", label: "To Account (Transfer)" },
   { value: "type", label: "Type" },
   { value: "category", label: "Category" },
   { value: "amount", label: "Amount" },
-  { value: "description", label: "Description" },
+  { value: "description", label: "Title" },
   { value: "notes", label: "Notes" },
   { value: "goal_name", label: "Goal Name" },
   { value: "deduction_type", label: "Deduction Type (full/split)" },
@@ -205,23 +205,54 @@ export default function Step2HeaderMapping({
           </label>
         </div>
 
-        {/* Row Preview (scrollable) */}
-        <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-muted/30">
-          {csvData.map((row, idx) => (
-            <div key={idx} className="flex items-center gap-2">
-              <Checkbox
-                id={`row-${idx}`}
-                checked={selectedRows.has(idx)}
-                onCheckedChange={(checked) => handleRowCheckChange(idx, checked as boolean)}
-              />
-              <label
-                htmlFor={`row-${idx}`}
-                className="text-xs flex-1 truncate cursor-pointer text-muted-foreground"
-              >
-                Row {idx + 1}: {Object.values(row).slice(0, 3).join(" | ")}
-              </label>
-            </div>
-          ))}
+        {/* Row Preview Table */}
+        <div className="border rounded-lg bg-muted/30 overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="p-2 text-left">
+                  <Checkbox
+                    id="table-select-all"
+                    checked={selectAllChecked}
+                    onCheckedChange={handleSelectAllChange}
+                  />
+                </th>
+                <th className="p-2 text-left font-medium">Row</th>
+                {originalHeaders.slice(0, 5).map((header) => (
+                  <th key={header} className="p-2 text-left font-medium max-w-xs truncate">
+                    {header}
+                  </th>
+                ))}
+                {originalHeaders.length > 5 && (
+                  <th className="p-2 text-left font-medium text-muted-foreground">
+                    +{originalHeaders.length - 5} more
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody className="divide-y max-h-64 overflow-y-auto">
+              {csvData.map((row, idx) => (
+                <tr key={idx} className="hover:bg-muted/50">
+                  <td className="p-2">
+                    <Checkbox
+                      id={`row-${idx}`}
+                      checked={selectedRows.has(idx)}
+                      onCheckedChange={(checked) => handleRowCheckChange(idx, checked as boolean)}
+                    />
+                  </td>
+                  <td className="p-2 font-medium text-muted-foreground">{idx + 1}</td>
+                  {originalHeaders.slice(0, 5).map((header) => (
+                    <td key={`${idx}-${header}`} className="p-2 truncate max-w-xs text-muted-foreground">
+                      {String(row[header] || "-").substring(0, 30)}
+                    </td>
+                  ))}
+                  {originalHeaders.length > 5 && (
+                    <td className="p-2 text-muted-foreground text-xs italic">hidden</td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
