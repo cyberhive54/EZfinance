@@ -64,10 +64,6 @@ export default function Dashboard() {
   // Only show loading state during initial dashboard data load or when accounts/categories are missing
   const isInitialLoading = dashboardLoading || !accounts || !categories || accounts.length === 0 || categories.length === 0;
 
-  if (isInitialLoading) {
-    return <DashboardSkeleton />;
-  }
-
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || "there";
   const income = stats?.income || 0;
   const expenses = stats?.expenses || 0;
@@ -176,6 +172,10 @@ export default function Dashboard() {
       );
     }
   };
+
+  if (isInitialLoading) {
+  return <DashboardSkeleton />;
+}
 
   return (
     <div className="space-y-8 pb-4">
