@@ -34,13 +34,10 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 type TransactionLayout = "grid" | "list";
 
 export default function Dashboard() {
+  // ALL HOOKS MUST BE AT TOP - BEFORE ANY CONDITIONAL LOGIC
   const { user } = useAuth();
-  const { preferredCurrency } = useProfile();
-  const { accounts: allAccounts, transactions: recentTransactions, totalBalance, monthlyIncome: initialIncome, monthlyExpenses: initialExpenses, isLoading: dashboardLoading } = useDashboardData(preferredCurrency);
-  const { accounts } = useAccounts();
-  const { categories } = useCategories();
   
-  // Date filter state
+  // State declarations FIRST
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>("this-month");
   const [customStartDate, setCustomStartDate] = useState<string>("");
   const [customEndDate, setCustomEndDate] = useState<string>("");
@@ -50,6 +47,12 @@ export default function Dashboard() {
   const [transactionLayout, setTransactionLayout] = useState<TransactionLayout>("grid");
   const [chartType, setChartType] = useState<"line" | "bar">("line");
   const [accountChartType, setAccountChartType] = useState<"line" | "bar">("bar");
+
+  // Then query hooks
+  const { preferredCurrency, isLoading: profileLoading } = useProfile();
+  const { accounts: allAccounts, transactions: recentTransactions, totalBalance, monthlyIncome: initialIncome, monthlyExpenses: initialExpenses, isLoading: dashboardLoading } = useDashboardData(preferredCurrency);
+  const { accounts } = useAccounts();
+  const { categories } = useCategories();
 
   // Get filtered stats
   const { stats, isLoading: statsLoading } = useDashboardStats(
@@ -62,7 +65,7 @@ export default function Dashboard() {
   );
 
   // Only show loading state during initial dashboard data load or when accounts/categories are missing
-  const isInitialLoading = dashboardLoading || !accounts || !categories || accounts.length === 0 || categories.length === 0;
+  const isInitialLoading = profileLoading || dashboardLoading || !accounts || !categories || accounts.length === 0 || categories.length === 0;
 
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || "there";
   const income = stats?.income || 0;
@@ -70,49 +73,54 @@ export default function Dashboard() {
   const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0;
 
   // Process categories data for charts - ensure categories are available
-  const incomeByCategories = useMemo(() => {
-    if (!stats?.incomeByCategory || !categories || categories.length === 0) return [];
+  const processIncomeByCategories = () => {
+    if (!stats || !stats.incomeByCategory || !categories || categories.length === 0) return [];
     return Object.entries(stats.incomeByCategory)
       .map(([categoryId, amount]) => ({
         name: categories.find((c) => c.id === categoryId)?.name || categoryId,
         value: amount,
       }))
       .filter((item) => item.value > 0);
-  }, [stats?.incomeByCategory, categories]);
+  };
 
-  const expensesByCategories = useMemo(() => {
-    if (!stats?.expensesByCategory || !categories || categories.length === 0) return [];
+  const processExpensesByCategories = () => {
+    if (!stats || !stats.expensesByCategory || !categories || categories.length === 0) return [];
     return Object.entries(stats.expensesByCategory)
       .map(([categoryId, amount]) => ({
         name: categories.find((c) => c.id === categoryId)?.name || categoryId,
         value: amount,
       }))
       .filter((item) => item.value > 0);
-  }, [stats?.expensesByCategory, categories]);
+  };
 
   // Process accounts data for charts - ensure accounts are available
-  const incomeByAccounts = useMemo(() => {
-    if (!stats?.incomeByAccount || !accounts || accounts.length === 0) return [];
+  const processIncomeByAccounts = () => {
+    if (!stats || !stats.incomeByAccount || !accounts || accounts.length === 0) return [];
     return Object.entries(stats.incomeByAccount)
       .map(([accountId, amount]) => ({
         name: accounts.find((a) => a.id === accountId)?.name || accountId,
         income: amount,
       }))
       .filter((item) => item.income > 0);
-  }, [stats?.incomeByAccount, accounts]);
+  };
 
-  const expensesByAccounts = useMemo(() => {
-    if (!stats?.expensesByAccount || !accounts || accounts.length === 0) return [];
+  const processExpensesByAccounts = () => {
+    if (!stats || !stats.expensesByAccount || !accounts || accounts.length === 0) return [];
     return Object.entries(stats.expensesByAccount)
       .map(([accountId, amount]) => ({
         name: accounts.find((a) => a.id === accountId)?.name || accountId,
         expenses: amount,
       }))
       .filter((item) => item.expenses > 0);
-  }, [stats?.expensesByAccount, accounts]);
+  };
 
   // Merge accounts data
-  const accountsChartData = useMemo(() => {
+  const incomeByCategories = processIncomeByCategories();
+  const expensesByCategories = processExpensesByCategories();
+  const incomeByAccounts = processIncomeByAccounts();
+  const expensesByAccounts = processExpensesByAccounts();
+
+  const accountsChartData = (() => {
     const merged: Record<string, { name: string; income: number; expenses: number }> = {};
     
     incomeByAccounts.forEach((item) => {
@@ -130,7 +138,7 @@ export default function Dashboard() {
     });
 
     return Object.values(merged);
-  }, [incomeByAccounts, expensesByAccounts]);
+  })();
 
   // Chart colors
   const COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];

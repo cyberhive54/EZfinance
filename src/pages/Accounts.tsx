@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTransactions } from "@/hooks/useTransactions";
+import { useProfile } from "@/hooks/useProfile";
 import { AccountsSkeleton } from "@/components/skeletons/PageSkeletons";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,7 +43,7 @@ interface AccountFormData {
 
 export default function Accounts() {
   const { accounts, isLoading, createAccount, updateAccount, deleteAccount, isCreating, isUpdating, isDeleting } = useAccounts();
-  const { preferredCurrency } = useProfile();
+  const { preferredCurrency, isLoading: profileLoading } = useProfile();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [formData, setFormData] = useState<AccountFormData>({
@@ -222,7 +223,7 @@ export default function Accounts() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || profileLoading) {
     return <AccountsSkeleton />;
   }
 

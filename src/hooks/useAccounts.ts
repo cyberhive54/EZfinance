@@ -1,8 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Account } from "@/types/database";
 import { useToast } from "@/hooks/use-toast";
+
+const EMPTY_ACCOUNTS: Account[] = [];
 
 export function useAccounts() {
   const { user } = useAuth();
@@ -20,7 +23,7 @@ export function useAccounts() {
       if (error) throw error;
       return data as Account[];
     },
-    enabled: !!user,
+    enabled: !!user?.id,
   });
 
   const createMutation = useMutation({
@@ -79,8 +82,10 @@ export function useAccounts() {
     },
   });
 
+  const accountsData = useMemo(() => query.data || EMPTY_ACCOUNTS, [query.data]);
+  
   return {
-    accounts: query.data || [],
+    accounts: accountsData,
     isLoading: query.isLoading,
     error: query.error,
     createAccount: createMutation.mutateAsync,
