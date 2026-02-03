@@ -12,6 +12,9 @@ export interface ImportRow {
   toAccount: string;
   frequency: string;
   notes: string;
+  deductionType?: string;
+  goalName?: string;
+  splitAmount?: string;
   errors: ImportError[];
   isValid: boolean;
 }
@@ -54,7 +57,10 @@ export const validateCategoryForType = (
 ): { isValid: boolean; suggestion?: string } => {
   if (!category || !type) return { isValid: false };
 
-  const typeCats = availableCategories.filter((c) => c.type === type.toLowerCase());
+  const normalizedType = type.toUpperCase() === "INCOME" ? "income" : type.toUpperCase() === "EXPENSE" ? "expense" : "";
+  if (!normalizedType || type.toUpperCase() === "TRANSFER") return { isValid: false };
+
+  const typeCats = availableCategories.filter((c) => c.type === normalizedType);
   const match = typeCats.find(
     (c) => c.name.toLowerCase().replace(/\s+/g, "_") === category.toLowerCase().replace(/\s+/g, "_")
   );
