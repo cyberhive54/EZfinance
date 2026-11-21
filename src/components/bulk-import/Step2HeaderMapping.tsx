@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -37,6 +37,24 @@ const AVAILABLE_FIELDS: { value: HeaderField; label: string }[] = [
   { value: "frequency", label: "Frequency" },
 ];
 
+// Auto-map common headers. Pure helper kept at module scope so it can be used
+// from the lazy useState initializer (no state set during render).
+const getAutoMappedValue = (header: string): HeaderField => {
+  const lowerHeader = header.toLowerCase();
+  if (["date", "transaction_date", "date_created"].includes(lowerHeader)) return "date";
+  if (["account", "account_id", "from_account"].includes(lowerHeader)) return "account_id";
+  if (lowerHeader === "to_account") return "to_account";
+  if (["type", "transaction_type"].includes(lowerHeader)) return "type";
+  if (["category", "category_name"].includes(lowerHeader)) return "category";
+  if (["amount", "value", "sum"].includes(lowerHeader)) return "amount";
+  if (["description", "memo"].includes(lowerHeader)) return "description";
+  if (["notes", "note", "comment"].includes(lowerHeader)) return "notes";
+  if (lowerHeader === "goal_name") return "goal_name";
+  if (lowerHeader === "deduction_type") return "deduction_type";
+  if (["frequency", "recurring"].includes(lowerHeader)) return "frequency";
+  return "skip";
+};
+
 export default function Step2HeaderMapping({
   csvData,
   originalHeaders,
@@ -44,40 +62,17 @@ export default function Step2HeaderMapping({
   selectedRows,
   onRowsSelected,
 }: Step2HeaderMappingProps) {
-  const [headerMapping, setHeaderMapping] = useState<HeaderMapping>({});
-  const [error, setError] = useState<string>("");
-  const [selectAllChecked, setSelectAllChecked] = useState(true);
-
-  // Auto-map common headers
-  const getAutoMappedValue = (header: string): HeaderField => {
-    const lowerHeader = header.toLowerCase();
-    if (["date", "transaction_date", "date_created"].includes(lowerHeader)) return "date";
-    if (["account", "account_id", "from_account"].includes(lowerHeader)) return "account_id";
-    if (lowerHeader === "to_account") return "to_account";
-    if (["type", "transaction_type"].includes(lowerHeader)) return "type";
-    if (["category", "category_name"].includes(lowerHeader)) return "category";
-    if (["amount", "value", "sum"].includes(lowerHeader)) return "amount";
-    if (["description", "memo"].includes(lowerHeader)) return "description";
-    if (["notes", "note", "comment"].includes(lowerHeader)) return "notes";
-    if (lowerHeader === "goal_name") return "goal_name";
-    if (lowerHeader === "deduction_type") return "deduction_type";
-    if (["frequency", "recurring"].includes(lowerHeader)) return "frequency";
-    return "skip";
-  };
-
-  // Initialize mapping on mount
-  const initializeMapping = () => {
+  // Initialize once from the headers via a lazy state initializer. The old
+  // initializeMapping() call in the render body set state during render.
+  const [headerMapping, setHeaderMapping] = useState<HeaderMapping>(() => {
     const mapping: HeaderMapping = {};
     originalHeaders.forEach((header) => {
       mapping[header] = getAutoMappedValue(header);
     });
-    setHeaderMapping(mapping);
-  };
-
-  // Initialize if empty
-  if (Object.keys(headerMapping).length === 0) {
-    initializeMapping();
-  }
+    return mapping;
+  });
+  const [error, setError] = useState<string>("");
+  const [selectAllChecked, setSelectAllChecked] = useState(true);
 
   // Get used fields to exclude from other dropdowns
   const usedFields = new Set(

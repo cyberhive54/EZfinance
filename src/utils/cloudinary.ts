@@ -72,8 +72,8 @@ export async function uploadTransactionAttachment(
 
   if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
     console.error("[v0] ATTACHMENT ERROR: Missing Cloudinary configuration", {
-      VITE_CLOUDINARY_CLOUD_NAME: process.env.VITE_CLOUDINARY_CLOUD_NAME,
-      VITE_CLOUDINARY_UPLOAD_PRESET: process.env.VITE_CLOUDINARY_UPLOAD_PRESET,
+      hasCloudName: Boolean(CLOUDINARY_CLOUD_NAME),
+      hasUploadPreset: Boolean(CLOUDINARY_UPLOAD_PRESET),
     });
     throw new Error("Cloudinary configuration is missing. Please check environment variables.");
   }

@@ -2,15 +2,15 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
+import { AlertCircle, Check, CheckCircle2, Loader2, X } from "lucide-react";
 import { ParsedCSVRow, HeaderMapping, ValidationError } from "@/types/bulkImport";
 import { validateRow } from "@/utils/csvValidator";
 import { Account, Category, Goal } from "@/types/database";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
 
 interface Step3ErrorCorrectionProps {
   csvData: ParsedCSVRow[];
+  onCsvDataChange: (data: ParsedCSVRow[]) => void;
   headerMapping: HeaderMapping;
   selectedRows: Set<number>;
   onSelectedRowsChange: (rows: Set<number>) => void;
@@ -23,6 +23,7 @@ interface Step3ErrorCorrectionProps {
 
 export default function Step3ErrorCorrection({
   csvData,
+  onCsvDataChange,
   headerMapping,
   selectedRows,
   onSelectedRowsChange,
@@ -78,11 +79,14 @@ export default function Step3ErrorCorrection({
   const handleCellSave = () => {
     if (!editingCell) return;
 
-    const row = csvData[editingCell.rowIndex];
-    row[editingCell.column] = editValue;
+    const { rowIndex, column } = editingCell;
+    const currentRow = csvData[rowIndex];
+    // Immutable update: build a new row and a new array via the parent setter
+    // so React re-renders and the import uses the corrected data.
+    const updatedRow: ParsedCSVRow = { ...currentRow, [column]: editValue };
 
-    // Re-validate this row
-    const errors = validateRow(row, headerMapping, {
+    // Re-validate this row against the corrected values.
+    const errors = validateRow(updatedRow, headerMapping, {
       accounts,
       categories,
       goalNames,
@@ -90,10 +94,14 @@ export default function Step3ErrorCorrection({
 
     const newResults = new Map(validationResults);
     if (errors.length > 0) {
-      newResults.set(editingCell.rowIndex, errors);
+      newResults.set(rowIndex, errors);
     } else {
-      newResults.delete(editingCell.rowIndex);
+      newResults.delete(rowIndex);
     }
+
+    onCsvDataChange(
+      csvData.map((row, idx) => (idx === rowIndex ? updatedRow : row))
+    );
 
     setValidationResults(newResults);
     setEditingCell(null);
@@ -172,11 +180,10 @@ export default function Step3ErrorCorrection({
   };
 
   return (
-    <TooltipProvider>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Import Status with Progress Bar */}
         {isImporting && (
-          <Alert className="border-blue-500/30 bg-blue-500/5">
+          <Alert role="status" aria-live="polite" className="border-info/30 bg-info/5">
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -211,15 +218,15 @@ export default function Step3ErrorCorrection({
             <p className="text-xs text-muted-foreground">Total Selected</p>
             <p className="text-2xl font-bold">{selectedRows.size}</p>
           </div>
-          <div className="p-3 rounded-lg border bg-green-500/5 border-green-500/30">
+          <div className="p-3 rounded-lg border border-success/30 bg-success/5">
             <p className="text-xs text-muted-foreground">Valid</p>
-            <p className="text-2xl font-bold text-green-600">
+            <p className="text-2xl font-semibold text-success tabular-nums">
               {selectedRows.size - validationResults.size}
             </p>
           </div>
-          <div className={`p-3 rounded-lg border ${hasErrors ? 'bg-red-500/5 border-red-500/30' : 'bg-green-500/5 border-green-500/30'}`}>
+          <div className={`p-3 rounded-lg border ${hasErrors ? 'border-destructive/30 bg-destructive/5' : 'border-success/30 bg-success/5'}`}>
             <p className="text-xs text-muted-foreground">Errors</p>
-            <p className={`text-2xl font-bold ${hasErrors ? 'text-red-600' : 'text-green-600'}`}>
+            <p className={`text-2xl font-semibold tabular-nums ${hasErrors ? 'text-destructive' : 'text-success'}`}>
               {validationResults.size}
             </p>
           </div>
@@ -232,7 +239,7 @@ export default function Step3ErrorCorrection({
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {validationResults.size} row(s) have errors. Click cells to edit. Green = valid, Red = error.
+              {validationResults.size} row(s) have errors. Select a highlighted cell to edit it; error messages are shown inline.
             </AlertDescription>
           </Alert>
           <Button
@@ -249,9 +256,9 @@ export default function Step3ErrorCorrection({
 
       {/* Success Message */}
       {reviewed && !hasErrors && (
-        <Alert className="border-green-500/30 bg-green-500/5">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-700">
+        <Alert className="border-success/30 bg-success/5">
+          <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
+          <AlertDescription className="text-success">
             All rows are valid and ready to import!
           </AlertDescription>
         </Alert>
@@ -294,7 +301,7 @@ export default function Step3ErrorCorrection({
                   <tr
                     key={rowIdx}
                     className={`border-b hover:bg-muted/30 transition-colors ${
-                      rowHasErrors ? "bg-red-50/30" : reviewed ? "bg-green-50/30" : ""
+                      rowHasErrors ? "bg-destructive/5" : reviewed ? "bg-success/5" : ""
                     }`}
                   >
                     <td className="p-2">
@@ -305,9 +312,9 @@ export default function Step3ErrorCorrection({
                         }
                       />
                     </td>
-                    <td className={`p-2 font-mono text-xs font-bold whitespace-nowrap transition-colors ${
+                    <td className={`p-2 font-mono text-xs font-semibold whitespace-nowrap tabular-nums transition-colors ${
                       rowHasErrors
-                        ? "bg-red-500/20 text-red-700"
+                        ? "bg-destructive/20 text-destructive"
                         : "text-muted-foreground"
                     }`}>
                       {rowIdx + 1}
@@ -321,22 +328,36 @@ export default function Step3ErrorCorrection({
                       const status = getCellStatus(rowIdx, col);
                       const hasError = cellErrors.length > 0;
 
-                      const cellContent = (
+                      const errorId = `cell-error-${rowIdx}-${col}`;
+                      const fieldLabel = getFieldLabel(col);
+
+                      return (
                         <td
                           key={col}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`${fieldLabel}, row ${rowIdx + 1}${hasError ? ", has validation errors" : ""}. Press Enter to edit.`}
+                          aria-describedby={hasError && !isEditing ? errorId : undefined}
                           className={`p-2 border-l font-mono text-xs cursor-pointer transition-colors ${
                             status === "error"
-                              ? "bg-red-100/50 text-red-900 hover:bg-red-150/50"
+                              ? "bg-destructive/10 text-destructive hover:bg-destructive/15"
                               : status === "valid"
-                                ? "bg-green-100/30 text-green-900"
+                                ? "bg-success/10 text-success"
                                 : "hover:bg-muted/50"
                           }`}
                           onClick={() => handleCellClick(rowIdx, col, value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleCellClick(rowIdx, col, value);
+                            }
+                          }}
                         >
                           {isEditing ? (
                             <input
                               autoFocus
                               type="text"
+                              aria-label={`Edit ${fieldLabel} for row ${rowIdx + 1}`}
                               value={editValue}
                               onChange={(e) => setEditValue(e.target.value)}
                               onBlur={handleCellSave}
@@ -347,38 +368,25 @@ export default function Step3ErrorCorrection({
                               className="w-full bg-transparent border-b border-current px-1 py-0.5 outline-none"
                             />
                           ) : (
-                            <div className="max-w-xs truncate flex items-center gap-1">
-                              {status === "error" && (
-                                <span className="text-red-600 flex-shrink-0">⚠</span>
+                            <div className="max-w-xs">
+                              <div className="flex items-center gap-1">
+                                {status === "error" && (
+                                  <AlertCircle className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                                )}
+                                {status === "valid" && (
+                                  <Check className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                                )}
+                                <span className="truncate">{String(value || "")}</span>
+                              </div>
+                              {hasError && (
+                                <p id={errorId} className="mt-1 font-sans text-xs leading-snug text-destructive">
+                                  {cellErrors.map((err) => err.message).join("; ")}
+                                </p>
                               )}
-                              {status === "valid" && (
-                                <span className="text-green-600 flex-shrink-0">✓</span>
-                              )}
-                              <span className="truncate">{String(value || "")}</span>
                             </div>
                           )}
                         </td>
                       );
-
-                      // Wrap in Tooltip if there are errors
-                      if (hasError && !isEditing) {
-                        return (
-                          <Tooltip key={col} delayDuration={100}>
-                            <TooltipTrigger asChild>
-                              {cellContent}
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-xs">
-                              <div className="space-y-1">
-                                {cellErrors.map((err, idx) => (
-                                  <p key={idx} className="text-xs">{err.message}</p>
-                                ))}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        );
-                      }
-
-                      return cellContent;
                     })}
                   </tr>
                 );
@@ -418,7 +426,6 @@ export default function Step3ErrorCorrection({
             )}
           </Button>
         </div>
-      </div>
-    </TooltipProvider>
+    </div>
   );
 }

@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useProfile } from "@/hooks/useProfile";
 import { AccountsSkeleton } from "@/components/skeletons/PageSkeletons";
+import { ErrorState } from "@/components/ui/error-state";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +43,7 @@ interface AccountFormData {
 }
 
 export default function Accounts() {
-  const { accounts, isLoading, createAccount, updateAccount, deleteAccount, isCreating, isUpdating, isDeleting } = useAccounts();
+  const { accounts, isLoading, error, createAccount, updateAccount, deleteAccount, isCreating, isUpdating, isDeleting } = useAccounts();
   const { preferredCurrency, isLoading: profileLoading } = useProfile();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -227,6 +228,15 @@ export default function Accounts() {
     return <AccountsSkeleton />;
   }
 
+  if (error) {
+    return (
+      <div className="space-y-6 pb-4">
+        <h1 className="text-2xl font-bold text-foreground md:text-3xl">Accounts</h1>
+        <ErrorState message="We couldn't load your accounts. Check your connection and try again." />
+      </div>
+    );
+  }
+
   const totalBalance = accounts.reduce((sum, acc) => sum + Number(acc.balance), 0);
 
   return (
@@ -248,22 +258,17 @@ export default function Accounts() {
           )}
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" onClick={() => handleOpenDialog()} className="md:hidden">
+            <Button size="sm" onClick={() => handleOpenDialog()} aria-label="Add account">
               <Plus className="h-4 w-4" />
-            </Button>
-          </DialogTrigger>
-          <DialogTrigger asChild>
-            <Button onClick={() => handleOpenDialog()} className="hidden md:flex">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Account
+              <span className="hidden md:inline">Add Account</span>
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>{editingAccount ? "Edit Account" : "Add New Account"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="space-y-1.5">
                 <Label htmlFor="name">Account Name</Label>
                 <Input
                   id="name"
@@ -273,11 +278,11 @@ export default function Accounts() {
                   required
                 />
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="type">Account Type</Label>
                   <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
-                    <SelectTrigger>
+                    <SelectTrigger id="type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -289,10 +294,10 @@ export default function Accounts() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="currency">Currency</Label>
                   <Select value={formData.currency} onValueChange={(v) => setFormData({ ...formData, currency: v })}>
-                    <SelectTrigger>
+                    <SelectTrigger id="currency">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -305,7 +310,7 @@ export default function Accounts() {
                   </Select>
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="balance">Current Balance {editingAccount && <span className="text-muted-foreground text-xs">(Edit via "Edit Balance" option)</span>}</Label>
                 <Input
                   id="balance"
@@ -401,7 +406,7 @@ export default function Accounts() {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label={`Actions for ${account.name}`}>
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -465,13 +470,13 @@ export default function Accounts() {
           <DialogHeader>
             <DialogTitle>Verify Account Password</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
               <p className="text-sm text-muted-foreground mb-2">
                 To change the account balance, please verify your password and provide a reason for the adjustment.
               </p>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
@@ -481,7 +486,7 @@ export default function Accounts() {
                 onChange={(e) => setPasswordInput(e.target.value)}
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="reason">Reason for Adjustment</Label>
               <Input
                 id="reason"
@@ -525,11 +530,11 @@ export default function Accounts() {
           <DialogHeader>
             <DialogTitle>Transfer Between Accounts</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
+          <div className="space-y-3">
+            <div className="space-y-1.5">
               <Label htmlFor="from-account">From Account</Label>
               <Select value={transferData.fromAccountId} onValueChange={(v) => setTransferData({ ...transferData, fromAccountId: v })}>
-                <SelectTrigger>
+                <SelectTrigger id="from-account">
                   <SelectValue placeholder="Select source account" />
                 </SelectTrigger>
                 <SelectContent>
@@ -546,10 +551,10 @@ export default function Accounts() {
               <ArrowRight className="h-5 w-5 text-muted-foreground" />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="to-account">To Account</Label>
               <Select value={transferData.toAccountId} onValueChange={(v) => setTransferData({ ...transferData, toAccountId: v })}>
-                <SelectTrigger>
+                <SelectTrigger id="to-account">
                   <SelectValue placeholder="Select destination account" />
                 </SelectTrigger>
                 <SelectContent>
@@ -564,7 +569,7 @@ export default function Accounts() {
               </Select>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="amount">Amount</Label>
               <Input
                 id="amount"

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Transaction, Category } from "@/types/database";
+import { Transaction, Category, NewTransaction } from "@/types/database";
 import { useToast } from "@/hooks/use-toast";
 
 export function useTransactions() {
@@ -33,7 +33,7 @@ export function useTransactions() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (transaction: Omit<Transaction, "id" | "user_id" | "created_at" | "updated_at">) => {
+    mutationFn: async (transaction: NewTransaction) => {
       const { data, error } = await supabase
         .from("transactions")
         .insert([{ ...transaction, user_id: user!.id }])

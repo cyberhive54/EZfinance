@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 export function DashboardSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-4" role="status" aria-busy="true" aria-label="Loading">
+      <span className="sr-only">Loading…</span>
       {/* Header skeleton */}
       <div className="flex items-center justify-between">
         <div className="space-y-2">
@@ -65,7 +66,7 @@ export function DashboardSkeleton() {
 
 export function AccountsSkeleton() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-4" role="status" aria-busy="true" aria-label="Loading"><span className="sr-only">Loading…</span>
       <div className="flex items-center justify-between">
         <Skeleton className="h-7 w-32" />
         <Skeleton className="h-9 w-28" />
@@ -91,7 +92,7 @@ export function AccountsSkeleton() {
 
 export function TransactionsSkeleton() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-4" role="status" aria-busy="true" aria-label="Loading"><span className="sr-only">Loading…</span>
       <div className="flex items-center justify-between">
         <Skeleton className="h-7 w-36" />
         <Skeleton className="h-9 w-9" />
@@ -116,7 +117,7 @@ export function TransactionsSkeleton() {
 
 export function AnalyticsSkeleton() {
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-4" role="status" aria-busy="true" aria-label="Loading"><span className="sr-only">Loading…</span>
       <div className="space-y-2">
         <Skeleton className="h-7 w-32" />
         <Skeleton className="h-4 w-40" />
@@ -166,7 +167,7 @@ export function AnalyticsSkeleton() {
 
 export function BudgetSkeleton() {
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-4" role="status" aria-busy="true" aria-label="Loading"><span className="sr-only">Loading…</span>
       <div className="flex items-center justify-between">
         <div className="space-y-2">
           <Skeleton className="h-7 w-24" />
@@ -211,7 +212,7 @@ export function BudgetSkeleton() {
 
 export function GoalsSkeleton() {
   return (
-    <div className="container mx-auto max-w-4xl space-y-6 p-4 pb-24">
+    <div className="space-y-6 pb-4" role="status" aria-busy="true" aria-label="Loading"><span className="sr-only">Loading…</span>
       <div className="flex items-center justify-between">
         <div className="space-y-2">
           <Skeleton className="h-7 w-24" />

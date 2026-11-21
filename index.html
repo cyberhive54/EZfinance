@@ -3,42 +3,43 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#17191e" media="(prefers-color-scheme: dark)" />
 
-    <!-- App Title -->
-    <title>EZFinance</title>
+    <title>EZfinance</title>
+    <meta name="description" content="EZfinance – a calm, private place to track accounts, transactions, budgets and goals." />
+    <meta name="author" content="EZfinance" />
 
-    <!-- Basic SEO -->
-    <meta
-      name="description"
-      content="EZFinance – Personal finance tracker to manage expenses, income, and accounts."
-    />
-    <meta name="author" content="EZFinance" />
-
-    <!-- Open Graph (WhatsApp, LinkedIn, Facebook) -->
-    <meta property="og:title" content="EZFinance" />
-    <meta
-      property="og:description"
-      content="Track expenses, income, and accounts in one place."
-    />
+    <meta property="og:title" content="EZfinance" />
+    <meta property="og:description" content="Track expenses, income, accounts and goals in one place." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/og-image.png" />
 
-    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="EZFinance" />
-    <meta
-      name="twitter:description"
-      content="Simple and powerful personal finance tracking."
-    />
+    <meta name="twitter:title" content="EZfinance" />
+    <meta name="twitter:description" content="A calm, private place to track your money." />
     <meta name="twitter:image" content="/og-image.png" />
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/favicon.ico" />
-  </head>
+    <link rel="icon" type="image/png" href="/favicon.png" />
 
+    <script>
+      // Apply the stored theme before first paint to avoid a flash of the wrong theme.
+      (function () {
+        try {
+          var stored = localStorage.getItem('theme');
+          var dark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.add(dark ? 'dark' : 'light');
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {
+          document.documentElement.classList.add('light');
+        }
+      })();
+    </script>
+  </head>
   <body>
     <div id="root"></div>
+    <noscript>EZfinance requires JavaScript to run.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

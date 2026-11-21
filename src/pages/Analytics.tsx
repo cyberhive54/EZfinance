@@ -2,21 +2,33 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { useProfile, formatCurrency } from "@/hooks/useProfile";
 import { AnalyticsSkeleton } from "@/components/skeletons/PageSkeletons";
+import { ErrorState, useQueryError } from "@/components/ui/error-state";
 import { TrendingUp, TrendingDown, PiggyBank, BarChart3 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { format } from "date-fns";
+import { CATEGORICAL_COLORS } from "@/lib/palette";
 
 export default function Analytics() {
   const { monthlyData, categoryBreakdown, summary, isLoading } = useAnalytics();
   const { preferredCurrency } = useProfile();
+  const error = useQueryError("analytics-monthly", "analytics-categories", "analytics-summary");
 
   if (isLoading) {
     return <AnalyticsSkeleton />;
   }
 
+  if (error) {
+    return (
+      <div className="space-y-6 pb-4">
+        <h1 className="text-2xl font-bold text-foreground md:text-3xl">Analytics</h1>
+        <ErrorState message="We couldn't load your analytics. Check your connection and try again." />
+      </div>
+    );
+  }
+
   const fmt = (amount: number) => formatCurrency(amount, preferredCurrency);
 
-  const COLORS = ["hsl(var(--primary))", "hsl(var(--destructive))", "hsl(var(--muted))", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899"];
+  const COLORS = [...CATEGORICAL_COLORS];
 
   return (
     <div className="space-y-6 pb-4">
@@ -30,7 +42,7 @@ export default function Analytics() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <div className="rounded-full bg-primary/10 p-2">
+              <div className="rounded-md bg-primary/10 p-2">
                 <TrendingUp className="h-4 w-4 text-primary" />
               </div>
               <div className="min-w-0 flex-1">
@@ -52,7 +64,7 @@ export default function Analytics() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <div className="rounded-full bg-destructive/10 p-2">
+              <div className="rounded-md bg-destructive/10 p-2">
                 <TrendingDown className="h-4 w-4 text-destructive" />
               </div>
               <div className="min-w-0 flex-1">
@@ -74,7 +86,7 @@ export default function Analytics() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <div className="rounded-full bg-primary/10 p-2">
+              <div className="rounded-md bg-primary/10 p-2">
                 <PiggyBank className="h-4 w-4 text-primary" />
               </div>
               <div className="min-w-0 flex-1">
@@ -90,7 +102,7 @@ export default function Analytics() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
-              <div className="rounded-full bg-primary/10 p-2">
+              <div className="rounded-md bg-primary/10 p-2">
                 <BarChart3 className="h-4 w-4 text-primary" />
               </div>
               <div className="min-w-0 flex-1">

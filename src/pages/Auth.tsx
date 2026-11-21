@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -29,11 +29,12 @@ export default function Auth() {
   const [signUpData, setSignUpData] = useState({ email: "", password: "", fullName: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Redirect if already logged in
-  if (user) {
-    navigate("/", { replace: true });
-    return null;
-  }
+  // Redirect if already logged in — side effects belong in an effect, not render.
+  useEffect(() => {
+    if (user) navigate("/", { replace: true });
+  }, [user, navigate]);
+
+  if (user) return null;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +105,7 @@ export default function Auth() {
 
     toast({
       title: "Account created!",
-      description: "Welcome to FinanceFlow. Let's get started!",
+      description: "Welcome to EZfinance. Let's get started!",
     });
     navigate("/", { replace: true });
   };
@@ -115,7 +116,7 @@ export default function Auth() {
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
           <TrendingUp className="h-6 w-6 text-primary-foreground" />
         </div>
-        <h1 className="text-2xl font-bold text-foreground">FinanceFlow</h1>
+        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-foreground">EZfinance</h1>
       </div>
       
       <Card className="w-full max-w-md">

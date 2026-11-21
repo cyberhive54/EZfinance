@@ -12,7 +12,7 @@ import Step1FileUpload from "@/components/bulk-import/Step1FileUpload";
 import Step2HeaderMapping from "@/components/bulk-import/Step2HeaderMapping";
 import Step3ErrorCorrection from "@/components/bulk-import/Step3ErrorCorrection";
 import StepIndicator from "@/components/bulk-import/StepIndicator";
-import { ParsedCSVRow, HeaderMapping, ValidationError } from "@/types/bulkImport";
+import { ParsedCSVRow, HeaderMapping } from "@/types/bulkImport";
 import { importBulkTransactions, ImportResult } from "@/utils/bulkImportService";
 
 export default function BulkImport() {
@@ -27,7 +27,6 @@ export default function BulkImport() {
   const [originalHeaders, setOriginalHeaders] = useState<string[]>([]);
   const [headerMapping, setHeaderMapping] = useState<HeaderMapping>({});
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
-  const [validationErrors, setValidationErrors] = useState<Map<number, ValidationError[]>>(new Map());
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
@@ -85,9 +84,6 @@ export default function BulkImport() {
         setOriginalHeaders([]);
         setSelectedRows(new Set());
         setHeaderMapping({});
-      } else if (currentStep === 3) {
-        // Go back to step 2
-        setValidationErrors(new Map());
       }
       setCurrentStep(currentStep - 1);
     }
@@ -99,7 +95,7 @@ export default function BulkImport() {
       <div className="flex-1 space-y-4 p-4 sm:p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Import Complete</h1>
+            <h1 className="text-2xl font-semibold">Import Complete</h1>
             <p className="text-muted-foreground mt-1">Your transactions have been processed</p>
           </div>
           <Button
@@ -116,7 +112,10 @@ export default function BulkImport() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CheckCircle2 className={`h-6 w-6 ${importResult.success ? "text-green-600" : "text-yellow-600"}`} />
+              <CheckCircle2
+                className={`h-6 w-6 ${importResult.success ? "text-success" : "text-warning"}`}
+                aria-hidden="true"
+              />
               {importResult.success ? "Import Successful!" : "Import Completed with Errors"}
             </CardTitle>
           </CardHeader>
@@ -125,35 +124,35 @@ export default function BulkImport() {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-muted/50 p-4 rounded-lg">
                 <p className="text-sm text-muted-foreground">Successfully Imported</p>
-                <p className="text-3xl font-bold text-green-600">{importResult.successfulImports}</p>
+                <p className="text-3xl font-semibold text-success tabular-nums">{importResult.successfulImports}</p>
               </div>
               {importResult.failedImports > 0 && (
-                <div className="bg-red-500/5 p-4 rounded-lg border border-red-500/20">
+                <div className="bg-destructive/5 p-4 rounded-lg border border-destructive/20">
                   <p className="text-sm text-muted-foreground">Failed</p>
-                  <p className="text-3xl font-bold text-red-600">{importResult.failedImports}</p>
+                  <p className="text-3xl font-semibold text-destructive tabular-nums">{importResult.failedImports}</p>
                 </div>
               )}
             </div>
 
             {/* Summary message */}
             {importResult.summary && (
-              <Alert className={importResult.success ? "border-green-500/30 bg-green-500/5" : ""}>
+              <Alert className={importResult.success ? "border-success/30 bg-success/5" : ""}>
                 <AlertDescription>{importResult.summary}</AlertDescription>
               </Alert>
             )}
 
             {/* Error details if any */}
             {importResult.errors.length > 0 && (
-              <div className="bg-red-500/5 border border-red-500/20 rounded-lg p-4 space-y-2">
-                <p className="font-semibold text-sm text-red-700">Errors ({importResult.errors.length})</p>
+              <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4 space-y-2">
+                <p className="font-semibold text-sm text-destructive">Errors ({importResult.errors.length})</p>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {importResult.errors.slice(0, 10).map((error, idx) => (
-                    <div key={idx} className="text-xs text-red-600">
+                    <div key={idx} className="text-xs text-destructive">
                       Row {error.rowIndex}: {error.message}
                     </div>
                   ))}
                   {importResult.errors.length > 10 && (
-                    <div className="text-xs text-red-600 font-semibold">
+                    <div className="text-xs text-destructive font-semibold">
                       ... and {importResult.errors.length - 10} more errors
                     </div>
                   )}
@@ -191,7 +190,7 @@ export default function BulkImport() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Bulk Import Transactions</h1>
+          <h1 className="text-2xl font-semibold">Bulk Import Transactions</h1>
           <p className="text-muted-foreground mt-1">Import multiple transactions at once from a CSV file</p>
         </div>
         <Button
@@ -243,6 +242,7 @@ export default function BulkImport() {
           {currentStep === 3 && (
             <Step3ErrorCorrection
               csvData={csvData}
+              onCsvDataChange={setCSVData}
               headerMapping={headerMapping}
               selectedRows={selectedRows}
               onSelectedRowsChange={handleRowsSelected}

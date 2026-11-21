@@ -11,6 +11,7 @@ export type HeaderField =
   | "goal_name"
   | "exchange_from_goal"
   | "frequency"
+  | "deduction_type"
   | "skip";
 
 export interface HeaderMapping {
@@ -25,6 +26,7 @@ export interface ValidationError {
   field: HeaderField;
   message: string;
   rowValue?: string | number;
+  rowIndex?: number;
 }
 
 export interface BulkImportRow {

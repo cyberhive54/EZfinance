@@ -14,6 +14,9 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
+# Supabase CLI local state
+supabase/.temp/
+
 # OS files
 .DS_Store
 Thumbs.db

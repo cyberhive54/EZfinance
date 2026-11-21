@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -13,22 +13,15 @@ import { GoalDeleteModal } from "./GoalDeleteModal";
 import { differenceInDays, format, parseISO, isAfter } from "date-fns";
 import { Target, Calendar, Pencil, Pause, Play, Archive, ArchiveRestore, Trash2, ArrowUpRight, ArrowDownRight, Clock, Flag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { SEMANTIC_COLORS } from "@/lib/palette";
+import type { Transaction } from "@/types/database";
 
 interface GoalViewModalProps {
   goal: Goal | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEdit: (goal: Goal) => void;
-  transactions: Array<{
-    id: string;
-    description: string | null;
-    amount: number;
-    transaction_date: string;
-    goal_amount: number | null;
-    type: "income" | "expense";
-    currency: string;
-    created_at: string;
-  }>;
+  transactions: Transaction[];
   logs: GoalLog[];
 }
 
@@ -166,7 +159,7 @@ export function GoalViewModal({ goal, open, onOpenChange, onEdit, transactions, 
                 className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full"
                 style={{ backgroundColor: `${localGoal.color}20` }}
               >
-                <Target className="h-5 w-5 sm:h-6 sm:w-6" style={{ color: localGoal.color || "#3b82f6" }} />
+                <Target className="h-5 w-5 sm:h-6 sm:w-6" style={{ color: localGoal.color || SEMANTIC_COLORS.primary }} />
               </div>
               <div className="flex-1 min-w-0">
                 <DialogTitle className="text-base sm:text-lg truncate">{localGoal.name}</DialogTitle>
@@ -185,10 +178,13 @@ export function GoalViewModal({ goal, open, onOpenChange, onEdit, transactions, 
                 </div>
               </div>
             </div>
+            <DialogDescription className="sr-only">
+              Goal details, contributions, and activity.
+            </DialogDescription>
           </DialogHeader>
 
           <ScrollArea className="max-h-[calc(90vh-80px)]">
-            <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+            <div className="p-3 sm:p-4 space-y-3 sm:space-y-3">
               {/* Goal Info */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg border border-border bg-muted/30 p-3">
@@ -357,7 +353,7 @@ export function GoalViewModal({ goal, open, onOpenChange, onEdit, transactions, 
                     No transactions linked to this goal yet
                   </p>
                 ) : (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
                     {sortedTransactions.map((t, idx) => (
                       <div
                         key={t.id}
@@ -404,7 +400,7 @@ export function GoalViewModal({ goal, open, onOpenChange, onEdit, transactions, 
                     No activity logged yet
                   </p>
                 ) : (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
                     {logs.map((log) => (
                       <div
                         key={log.id}

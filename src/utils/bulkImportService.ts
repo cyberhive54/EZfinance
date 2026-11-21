@@ -44,13 +44,12 @@ export async function importBulkTransactions(
 
     // Validate each row
     const validatedRows = rowsToImport.filter((item) => {
-      const errors = validateRow(item.originalRow, headerMapping, validationContext);
-      if (errors.length > 0) {
+      const rowErrors = validateRow(item.originalRow, headerMapping, validationContext);
+      if (rowErrors.length > 0) {
         failedImports++;
-        errors.forEach((err) => {
-          item.rowIndex++;
+        rowErrors.forEach((err) => {
           errors.push({
-            rowIndex: item.rowIndex,
+            rowIndex: item.rowIndex + 1,
             message: `${err.field}: ${err.message}`,
           });
         });

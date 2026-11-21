@@ -2,7 +2,6 @@ import { useState, useRef } from "react";
 import { Upload, AlertCircle, CheckCircle2, ChevronDown, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -22,6 +21,7 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
   const [dragActive, setDragActive] = useState(false);
   const [copiedRuleIndex, setCopiedRuleIndex] = useState<number | null>(null);
   const [copiedSampleIndex, setCopiedSampleIndex] = useState<number | null>(null);
+  const [copyAnnouncement, setCopyAnnouncement] = useState("");
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -111,6 +111,11 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
 
   const copyToClipboard = (text: string, type: "rule" | "sample", index: number) => {
     navigator.clipboard.writeText(text).then(() => {
+      setCopyAnnouncement(
+        type === "rule"
+          ? "Copied required-fields template to clipboard"
+          : "Copied sample CSV to clipboard"
+      );
       if (type === "rule") {
         setCopiedRuleIndex(index);
         setTimeout(() => setCopiedRuleIndex(null), 2000);
@@ -121,35 +126,35 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
     });
   };
 
-  // Success state - show parsed data and continue button
+  // Success state - show parsed data and continue button.
+  // A plain section avoids nesting a Card inside the wizard's Card.
   if (parsedData) {
     return (
       <div className="space-y-4">
-        <Card className="border-green-500/30 bg-green-500/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-700">
-              <CheckCircle2 className="h-5 w-5" />
-              CSV Loaded Successfully
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-muted-foreground">Columns Found</p>
-                <p className="text-2xl font-bold text-green-600">{parsedData.headers.length}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Rows Found</p>
-                <p className="text-2xl font-bold text-green-600">{parsedData.rows.length}</p>
-              </div>
+        <section
+          aria-label="CSV loaded successfully"
+          className="space-y-3 rounded-lg border border-success/30 bg-success/5 p-4"
+        >
+          <h3 className="flex items-center gap-2 text-success">
+            <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+            CSV Loaded Successfully
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Columns Found</p>
+              <p className="text-2xl font-semibold text-success tabular-nums">{parsedData.headers.length}</p>
             </div>
-            <div className="bg-muted/50 p-3 rounded text-xs max-h-24 overflow-y-auto">
-              <p className="font-mono text-foreground/80">
-                {parsedData.headers.join(" | ")}
-              </p>
+            <div>
+              <p className="text-xs text-muted-foreground">Rows Found</p>
+              <p className="text-2xl font-semibold text-success tabular-nums">{parsedData.rows.length}</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="bg-muted/50 p-3 rounded text-xs max-h-24 overflow-y-auto">
+            <p className="font-mono text-foreground/80">
+              {parsedData.headers.join(" | ")}
+            </p>
+          </div>
+        </section>
 
         <Button
           onClick={handleContinue}
@@ -179,6 +184,11 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
 
   return (
     <div className="space-y-6">
+      {/* Announce copy confirmations to assistive technology */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {copyAnnouncement}
+      </div>
+
       {/* Error Alert */}
       {error && (
         <Alert variant="destructive">
@@ -196,22 +206,32 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
 
         {/* Upload Tab */}
         <TabsContent value="upload" className="space-y-4 mt-4">
-          <div
+          <label
+            htmlFor="csv-file-input"
+            role="button"
+            tabIndex={0}
+            aria-label="Upload CSV file: drag and drop, or press Enter to browse"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                fileInputRef.current?.click();
+              }
+            }}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+            className={`block border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
               dragActive
                 ? "border-primary bg-primary/5"
                 : "border-muted-foreground/30 bg-muted/30"
             } cursor-pointer`}
-            onClick={() => fileInputRef.current?.click()}
           >
-            <Upload className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+            <Upload className="h-10 w-10 mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
             <p className="text-lg font-semibold mb-1">Drag and drop your CSV file here</p>
             <p className="text-sm text-muted-foreground">or click to browse</p>
             <p className="text-xs text-muted-foreground mt-2">Max 5MB • Max 500 rows</p>
             <input
+              id="csv-file-input"
               ref={fileInputRef}
               type="file"
               accept=".csv"
@@ -219,13 +239,13 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
               disabled={isLoading}
               className="hidden"
             />
-          </div>
+          </label>
         </TabsContent>
 
         {/* Paste Tab */}
         <TabsContent value="paste" className="space-y-4 mt-4">
           <Textarea
-            placeholder="Paste your CSV data here&#10;Example: date,account,type,amount&#10;2024-01-15,Checking,expense,50.00"
+            placeholder={"Paste your CSV data here\nExample: date,account,type,amount\n2024-01-15,Checking,expense,50.00"}
             value={pastedCSV}
             onChange={(e) => setPastedCSV(e.target.value)}
             className="min-h-48 font-mono text-sm"
@@ -318,7 +338,7 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
           {/* Full Sample with All Fields */}
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <h4 className="font-semibold text-xs text-blue-700">Complete Sample CSV (All Fields)</h4>
+              <h4 className="font-semibold text-xs text-info">Complete Sample CSV (All Fields)</h4>
               <Button
                 variant="ghost"
                 size="sm"
@@ -338,7 +358,7 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
                 <span className="text-xs">Copy</span>
               </Button>
             </div>
-            <div className="bg-blue-50/50 border border-blue-200 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre max-h-32">
+            <div className="bg-info/5 border border-info/30 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre max-h-32">
 {`date,account_id,type,category,amount,description,goal_name,exchange_from_goal,from_account,to_account,frequency
 2024-01-15,Checking,expense,groceries,45.50,Weekly groceries
 2024-01-16,Checking,income,Salary,5000.00,Monthly salary,Emergency Fund,3000.00
@@ -350,8 +370,8 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
 
           {/* Example 1 - Simple Expense */}
           <div>
-            <h4 className="font-semibold text-xs mb-2 text-green-700">✓ Correct: Simple Expense</h4>
-            <div className="bg-green-50/50 border border-green-200 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
+            <h4 className="font-semibold text-xs mb-2 text-success">Correct: Simple Expense</h4>
+            <div className="bg-success/5 border border-success/30 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
 {`date,account_id,type,category,amount,description
 2024-01-15,Checking,expense,groceries,45.50,Weekly groceries
 2024-01-16,Checking,EXPENSE,utilities,120.00,Electricity bill`}
@@ -360,8 +380,8 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
 
           {/* Example 2 - With Goal Deduction */}
           <div>
-            <h4 className="font-semibold text-xs mb-2 text-green-700">✓ Correct: With Goal Deduction</h4>
-            <div className="bg-green-50/50 border border-green-200 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
+            <h4 className="font-semibold text-xs mb-2 text-success">Correct: With Goal Deduction</h4>
+            <div className="bg-success/5 border border-success/30 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
 {`date,account_id,type,amount,goal_name,deduction_type
 2024-01-15,Savings,expense,100.00,Emergency Fund,full
 2024-01-16,Savings,expense,50.00,Vacation Fund,split`}
@@ -370,8 +390,8 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
 
           {/* Example 3 - Transfer */}
           <div>
-            <h4 className="font-semibold text-xs mb-2 text-green-700">✓ Correct: Transfer (2 rows)</h4>
-            <div className="bg-green-50/50 border border-green-200 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
+            <h4 className="font-semibold text-xs mb-2 text-success">Correct: Transfer (2 rows)</h4>
+            <div className="bg-success/5 border border-success/30 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
 {`date,from_account,to_account,amount,type,description
 2024-01-15,Checking,Savings,500.00,transfer-sender,Move to savings
 2024-01-15,Checking,Savings,500.00,transfer-receiver,Move to savings`}
@@ -380,31 +400,31 @@ export default function Step1FileUpload({ onFileLoaded }: Step1FileUploadProps) 
 
           {/* Example 4 - Wrong */}
           <div>
-            <h4 className="font-semibold text-xs mb-2 text-red-700">✗ Wrong: Missing Required Fields</h4>
-            <div className="bg-red-50/50 border border-red-200 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
+            <h4 className="font-semibold text-xs mb-2 text-destructive">Wrong: Missing Required Fields</h4>
+            <div className="bg-destructive/5 border border-destructive/30 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
 {`date,account,amount
 2024-01-15,Checking,50
-❌ Missing: type and category`}
+Missing: type and category`}
             </div>
           </div>
 
           {/* Example 5 - Wrong */}
           <div>
-            <h4 className="font-semibold text-xs mb-2 text-red-700">✗ Wrong: Invalid Data</h4>
-            <div className="bg-red-50/50 border border-red-200 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
+            <h4 className="font-semibold text-xs mb-2 text-destructive">Wrong: Invalid Data</h4>
+            <div className="bg-destructive/5 border border-destructive/30 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
 {`date,account_id,type,category,amount
 2024-02-03,Checking,expense,groceries,abc
-❌ Invalid amount: "abc" (must be numeric)`}
+Invalid amount: "abc" (must be numeric)`}
             </div>
           </div>
 
           {/* Example 6 - Multiple word type */}
           <div>
-            <h4 className="font-semibold text-xs mb-2 text-green-700">✓ Correct: Multi-word Types Auto-converted</h4>
-            <div className="bg-green-50/50 border border-green-200 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
+            <h4 className="font-semibold text-xs mb-2 text-success">Correct: Multi-word Types Auto-converted</h4>
+            <div className="bg-success/5 border border-success/30 rounded p-3 font-mono text-xs overflow-x-auto whitespace-pre">
 {`date,from_account,to_account,amount,type
 2024-01-15,My Checking,My Savings,500,Bank Transfer
-→ Converts to: from_account=my_checking, to_account=my_savings, type=transfer-sender`}
+Converts to: from_account=my_checking, to_account=my_savings, type=transfer-sender`}
             </div>
           </div>
         </CollapsibleContent>

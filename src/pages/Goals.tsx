@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -15,13 +15,12 @@ import { usePriorities } from "@/hooks/usePriorities";
 import { Plus, Target, PiggyBank, TrendingUp, Calendar, Flag, ArrowUpDown } from "lucide-react";
 import { differenceInDays } from "date-fns";
 import { GoalsSkeleton } from "@/components/skeletons/PageSkeletons";
+import { ErrorState, useQueryError } from "@/components/ui/error-state";
 import { GoalStatusBadge, getGoalStatus } from "@/components/goals/GoalStatusBadge";
 import { GoalViewModal } from "@/components/goals/GoalViewModal";
+import { CATEGORICAL_COLORS, SEMANTIC_COLORS } from "@/lib/palette";
 
-const GOAL_COLORS = [
-  "#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6",
-  "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
-];
+const GOAL_COLORS: string[] = [...CATEGORICAL_COLORS];
 
 const GOAL_ICONS = [
   { icon: "Target", label: "Target" },
@@ -34,11 +33,167 @@ const GOAL_ICONS = [
   { icon: "Gift", label: "Gift" },
 ];
 
+type GoalFormValues = {
+  name: string;
+  targetAmount: string;
+  startDate: string;
+  deadline: string;
+  color: string;
+  icon: string;
+  priorityId: string;
+};
+
+type GoalFormProps = {
+  values: GoalFormValues;
+  onChange: (patch: Partial<GoalFormValues>) => void;
+  priorities: Array<{ id: string; name: string; color: string }>;
+  currencySymbol: string;
+  isSubmitting: boolean;
+  isEdit?: boolean;
+  onSubmit: () => void;
+};
+
+/** Stable component identity — declaring it inside Goals() remounts it on every keystroke. */
+function GoalForm({
+  values,
+  onChange,
+  priorities,
+  currencySymbol,
+  isSubmitting,
+  isEdit = false,
+  onSubmit,
+}: GoalFormProps) {
+  const valid = Boolean(values.name && values.targetAmount && values.deadline);
+
+  return (
+    <form
+      className="space-y-3 px-5 py-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (valid) onSubmit();
+      }}
+    >
+      <div className="space-y-1.5">
+        <Label htmlFor="goal-name">Goal Name</Label>
+        <Input
+          id="goal-name"
+          placeholder="e.g., Emergency Fund"
+          value={values.name}
+          onChange={(event) => onChange({ name: event.target.value })}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="goal-target">Target Amount</Label>
+        <CurrencyInput
+          id="goal-target"
+          currencySymbol={currencySymbol}
+          placeholder="10000"
+          value={values.targetAmount}
+          onChange={(event) => onChange({ targetAmount: event.target.value })}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="goal-start">Start Date (optional)</Label>
+          <Input
+            id="goal-start"
+            type="date"
+            value={values.startDate}
+            onChange={(event) => onChange({ startDate: event.target.value })}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="goal-deadline">Target Date <span className="text-destructive">*</span></Label>
+          <Input
+            id="goal-deadline"
+            type="date"
+            value={values.deadline}
+            onChange={(event) => onChange({ deadline: event.target.value })}
+            required
+          />
+        </div>
+      </div>
+
+      {priorities.length > 0 && (
+        <div className="space-y-1.5">
+          <Label htmlFor="goal-priority">Priority</Label>
+          <Select
+            value={values.priorityId || "none"}
+            onValueChange={(value) => onChange({ priorityId: value === "none" ? "" : value })}
+          >
+            <SelectTrigger id="goal-priority" aria-label="Priority">
+              <SelectValue placeholder="Select priority (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No Priority</SelectItem>
+              {priorities.map((priority) => (
+                <SelectItem key={priority.id} value={priority.id}>
+                  <span className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full" style={{ backgroundColor: priority.color }} />
+                    {priority.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <fieldset className="space-y-1.5">
+        <legend className="text-sm font-medium">Color</legend>
+        <div className="flex flex-wrap gap-2">
+          {GOAL_COLORS.map((color) => (
+            <button
+              key={color}
+              type="button"
+              aria-label={`Use ${color} as goal color`}
+              aria-pressed={values.color === color}
+              className={`h-8 w-8 rounded-full border-2 transition-transform ${
+                values.color === color ? "scale-110 border-foreground" : "border-transparent"
+              }`}
+              style={{ backgroundColor: color }}
+              onClick={() => onChange({ color })}
+            />
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset className="space-y-1.5">
+        <legend className="text-sm font-medium">Icon</legend>
+        <div className="flex flex-wrap gap-2">
+          {GOAL_ICONS.map(({ icon, label }) => (
+            <button
+              key={icon}
+              type="button"
+              aria-pressed={values.icon === icon}
+              className={`rounded-md border px-3 py-2 text-sm transition-colors ${
+                values.icon === icon
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border hover:bg-secondary"
+              }`}
+              onClick={() => onChange({ icon })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
+      <Button type="submit" disabled={isSubmitting || !valid} className="w-full">
+        {isEdit ? "Save Changes" : "Create Goal"}
+      </Button>
+    </form>
+  );
+}
+
 export default function Goals() {
   const { goals, goalLogs, isLoading, createGoal, updateGoal, isCreating } = useGoals();
   const { transactions } = useTransactions();
   const { preferredCurrency } = useProfile();
   const { priorities, initializePriorities, isLoading: prioritiesLoading } = usePriorities();
+  const error = useQueryError("goals", "goal_logs");
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -115,6 +270,26 @@ export default function Goals() {
     setSelectedPriorityId("");
   };
 
+  const formValues: GoalFormValues = {
+    name,
+    targetAmount,
+    startDate,
+    deadline,
+    color: selectedColor,
+    icon: selectedIcon,
+    priorityId: selectedPriorityId,
+  };
+
+  const patchForm = (patch: Partial<GoalFormValues>) => {
+    if (patch.name !== undefined) setName(patch.name);
+    if (patch.targetAmount !== undefined) setTargetAmount(patch.targetAmount);
+    if (patch.startDate !== undefined) setStartDate(patch.startDate);
+    if (patch.deadline !== undefined) setDeadline(patch.deadline);
+    if (patch.color !== undefined) setSelectedColor(patch.color);
+    if (patch.icon !== undefined) setSelectedIcon(patch.icon);
+    if (patch.priorityId !== undefined) setSelectedPriorityId(patch.priorityId);
+  };
+
   const handleCreate = () => {
     if (!name || !targetAmount || !deadline) return;
     
@@ -185,6 +360,15 @@ export default function Goals() {
     return <GoalsSkeleton />;
   }
 
+  if (error) {
+    return (
+      <div className="space-y-6 pb-4">
+        <h1 className="text-2xl font-bold text-foreground md:text-3xl">Goals</h1>
+        <ErrorState message="We couldn't load your goals. Check your connection and try again." />
+      </div>
+    );
+  }
+
   // Calculate summary stats (only active, non-archived goals)
   const activeGoals = goals.filter(g => g.status === "active" && !g.is_archived);
   const totalTarget = activeGoals.reduce((sum, g) => sum + g.target_amount, 0);
@@ -197,123 +381,6 @@ export default function Goals() {
     return priorities.find(p => p.id === priorityId)?.color || null;
   };
 
-  const GoalForm = ({ isEdit = false }: { isEdit?: boolean }) => (
-    <div className="space-y-4 pt-4">
-      <div className="space-y-2">
-        <Label>Goal Name</Label>
-        <Input
-          placeholder="e.g., Emergency Fund"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-      
-      <div className="space-y-2">
-        <Label>Target Amount</Label>
-        <CurrencyInput
-          currencySymbol={currencySymbol}
-          placeholder="10000"
-          value={targetAmount}
-          onChange={(e) => setTargetAmount(e.target.value)}
-        />
-      </div>
-      
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Start Date (Optional)</Label>
-          <Input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Target Date <span className="text-destructive">*</span></Label>
-          <Input
-            type="date"
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-            required
-          />
-        </div>
-      </div>
-
-      {/* Priority Selector */}
-      {priorities.length > 0 && (
-        <div className="space-y-2">
-          <Label>Priority</Label>
-          <Select 
-            value={selectedPriorityId || "none"} 
-            onValueChange={(val) => setSelectedPriorityId(val === "none" ? "" : val)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select priority (optional)" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No Priority</SelectItem>
-              {priorities.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="h-3 w-3 rounded-full" 
-                      style={{ backgroundColor: p.color }}
-                    />
-                    {p.name}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-      
-      <div className="space-y-2">
-        <Label>Color</Label>
-        <div className="flex flex-wrap gap-2">
-          {GOAL_COLORS.map((color) => (
-            <button
-              key={color}
-              type="button"
-              className={`h-8 w-8 rounded-full border-2 transition-transform ${
-                selectedColor === color ? "scale-110 border-foreground" : "border-transparent"
-              }`}
-              style={{ backgroundColor: color }}
-              onClick={() => setSelectedColor(color)}
-            />
-          ))}
-        </div>
-      </div>
-      
-      <div className="space-y-2">
-        <Label>Icon</Label>
-        <div className="flex flex-wrap gap-2">
-          {GOAL_ICONS.map(({ icon, label }) => (
-            <button
-              key={icon}
-              type="button"
-              className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                selectedIcon === icon
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border hover:bg-accent"
-              }`}
-              onClick={() => setSelectedIcon(icon)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-      
-      <Button 
-        onClick={isEdit ? handleEdit : handleCreate} 
-        disabled={isCreating || !name || !targetAmount || !deadline} 
-        className="w-full"
-      >
-        {isEdit ? "Save Changes" : "Create Goal"}
-      </Button>
-    </div>
-  );
-
   return (
     <div className="space-y-6 pb-4">
       {/* Header */}
@@ -324,26 +391,30 @@ export default function Goals() {
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="md:hidden">
+            <Button size="sm" aria-label="Add goal">
               <Plus className="h-4 w-4" />
+              <span className="hidden md:inline">Add Goal</span>
             </Button>
           </DialogTrigger>
-          <DialogTrigger asChild>
-            <Button className="hidden md:flex">
-              <Plus className="mr-2 h-4 w-4" /> Add Goal
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create New Goal</DialogTitle>
+              <DialogTitle>Create a goal</DialogTitle>
+              <DialogDescription>Set a target and a date. You can change both later.</DialogDescription>
             </DialogHeader>
-            <GoalForm />
+            <GoalForm
+              values={formValues}
+              onChange={patchForm}
+              priorities={priorities}
+              currencySymbol={currencySymbol}
+              isSubmitting={isCreating}
+              onSubmit={handleCreate}
+            />
           </DialogContent>
         </Dialog>
       </div>
 
       {/* Summary Cards - Responsive */}
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
@@ -358,8 +429,8 @@ export default function Goals() {
         
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/10">
-              <PiggyBank className="h-5 w-5 text-green-500" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-success/10">
+              <PiggyBank className="h-5 w-5 text-success" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Total Saved</p>
@@ -370,8 +441,8 @@ export default function Goals() {
         
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10">
-              <TrendingUp className="h-5 w-5 text-blue-500" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-info/10">
+              <TrendingUp className="h-5 w-5 text-info" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Completed</p>
@@ -445,7 +516,7 @@ export default function Goals() {
                             className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full"
                             style={{ backgroundColor: `${goal.color}20` }}
                           >
-                            <Target className="h-4 w-4 sm:h-5 sm:w-5" style={{ color: goal.color || "#3b82f6" }} />
+                            <Target className="h-4 w-4 sm:h-5 sm:w-5" style={{ color: goal.color || SEMANTIC_COLORS.primary }} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -534,7 +605,7 @@ export default function Goals() {
                             className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full"
                             style={{ backgroundColor: `${goal.color}20` }}
                           >
-                            <Target className="h-4 w-4 sm:h-5 sm:w-5" style={{ color: goal.color || "#3b82f6" }} />
+                            <Target className="h-4 w-4 sm:h-5 sm:w-5" style={{ color: goal.color || SEMANTIC_COLORS.primary }} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -579,11 +650,20 @@ export default function Goals() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Goal</DialogTitle>
+            <DialogTitle>Edit goal</DialogTitle>
+            <DialogDescription>Update the target, date, or appearance of this goal.</DialogDescription>
           </DialogHeader>
-          <GoalForm isEdit />
+          <GoalForm
+            isEdit
+            values={formValues}
+            onChange={patchForm}
+            priorities={priorities}
+            currencySymbol={currencySymbol}
+            isSubmitting={isCreating}
+            onSubmit={handleEdit}
+          />
         </DialogContent>
       </Dialog>
 

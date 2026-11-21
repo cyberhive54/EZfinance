@@ -6,14 +6,27 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { ErrorState, useQueryError } from "@/components/ui/error-state";
 import { useCategories } from "@/hooks/useCategories";
 import { Plus, Trash2, Tag, Pencil, icons } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { CATEGORICAL_COLORS, SEMANTIC_COLORS } from "@/lib/palette";
 
 // Helper to render either a Lucide icon or emoji
 const CategoryIcon = ({ icon, color }: { icon: string | null; color: string | null }) => {
   const iconName = icon || "Tag";
-  const bgColor = color ? `${color}20` : "#64748b20";
+  const bgColor = color ? `${color}20` : `${SEMANTIC_COLORS.neutral}20`;
   
   // Check if it's a Lucide icon name (starts with uppercase and no emoji)
   const isLucideIcon = /^[A-Z][a-zA-Z0-9]*$/.test(iconName);
@@ -25,37 +38,33 @@ const CategoryIcon = ({ icon, color }: { icon: string | null; color: string | nu
         className="flex h-10 w-10 items-center justify-center rounded-full"
         style={{ backgroundColor: bgColor }}
       >
-        <LucideIconComponent className="h-5 w-5" style={{ color: color || "#64748b" }} />
+        <LucideIconComponent className="h-5 w-5" style={{ color: color || SEMANTIC_COLORS.neutral }} />
       </div>
     );
   }
   
-  // Fallback to emoji
+  // Legacy emoji values fall back to a real icon rather than rendering emoji as UI.
   return (
-    <div 
-      className="flex h-10 w-10 items-center justify-center rounded-full text-lg"
+    <div
+      className="flex h-10 w-10 items-center justify-center rounded-full"
       style={{ backgroundColor: bgColor }}
     >
-      {iconName}
+      <Tag className="h-5 w-5" style={{ color: color || SEMANTIC_COLORS.neutral }} />
     </div>
   );
 };
 
-const CATEGORY_COLORS = [
-  "#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16",
-  "#22c55e", "#10b981", "#14b8a6", "#06b6d4", "#0ea5e9",
-  "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7", "#d946ef",
-  "#ec4899", "#f43f5e", "#64748b",
-];
+const CATEGORY_COLORS: string[] = [...CATEGORICAL_COLORS];
 
 const CATEGORY_ICONS = [
-  "🏠", "🚗", "🍔", "🛒", "💊", "🎬", "✈️", "📚",
-  "💰", "💳", "🎁", "👕", "⚡", "📱", "🏋️", "🎵",
-  "🐕", "👶", "🏥", "🎓", "💼", "🏦", "📈", "🎯",
+  "Home", "Car", "UtensilsCrossed", "ShoppingCart", "Pill", "Clapperboard", "Plane", "BookOpen",
+  "Wallet", "CreditCard", "Gift", "Shirt", "Zap", "Smartphone", "Dumbbell", "Music",
+  "Dog", "Baby", "Hospital", "GraduationCap", "Briefcase", "Landmark", "TrendingUp", "Target",
 ];
 
 export default function Categories() {
   const { categories, isLoading, createCategory, updateCategory, deleteCategory, isCreating } = useCategories();
+  const error = useQueryError("categories");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -120,6 +129,15 @@ export default function Categories() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="space-y-6 pb-20">
+        <h1 className="text-2xl font-bold text-foreground">Categories</h1>
+        <ErrorState message="We couldn't load your categories. Check your connection and try again." />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-20">
       <div className="flex items-center justify-between">
@@ -134,10 +152,11 @@ export default function Categories() {
             <DialogHeader>
               <DialogTitle>{editingCategory ? "Edit Category" : "Create Category"}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Name</Label>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="category-name">Name</Label>
                 <Input 
+                  id="category-name"
                   placeholder="Category name" 
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -146,10 +165,10 @@ export default function Categories() {
               </div>
               
               {!editingCategory && (
-                <div className="space-y-2">
-                  <Label>Type</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="category-type">Type</Label>
                   <Select value={type} onValueChange={(v) => setType(v as "income" | "expense")}>
-                    <SelectTrigger>
+                    <SelectTrigger id="category-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -160,13 +179,15 @@ export default function Categories() {
                 </div>
               )}
               
-              <div className="space-y-2">
-                <Label>Icon</Label>
-                <div className="grid grid-cols-8 gap-2">
+              <div className="space-y-1.5">
+                <Label id="category-icon-label">Icon</Label>
+                <div role="group" aria-labelledby="category-icon-label" className="grid grid-cols-8 gap-2">
                   {CATEGORY_ICONS.map((i) => (
                     <button
                       key={i}
                       type="button"
+                      aria-label={`Use ${i} icon`}
+                      aria-pressed={icon === i}
                       onClick={() => setIcon(i)}
                       className={`flex h-10 w-10 items-center justify-center rounded-lg border text-lg transition-colors ${
                         icon === i ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
@@ -178,16 +199,18 @@ export default function Categories() {
                 </div>
               </div>
               
-              <div className="space-y-2">
-                <Label>Color</Label>
-                <div className="grid grid-cols-9 gap-2">
+              <div className="space-y-1.5">
+                <Label id="category-color-label">Color</Label>
+                <div role="group" aria-labelledby="category-color-label" className="grid grid-cols-9 gap-2">
                   {CATEGORY_COLORS.map((c) => (
                     <button
                       key={c}
                       type="button"
+                      aria-label={`Use ${c} as category color`}
+                      aria-pressed={color === c}
                       onClick={() => setColor(c)}
                       className={`h-8 w-8 rounded-full transition-transform ${
-                        color === c ? "scale-110 ring-2 ring-primary ring-offset-2 ring-offset-background" : "hover:scale-105"
+                        color === c ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "hover:brightness-110"
                       }`}
                       style={{ backgroundColor: c }}
                     />
@@ -208,7 +231,7 @@ export default function Categories() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Expense Categories</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-1.5">
           {expenseCategories.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">No expense categories</p>
           ) : (
@@ -229,18 +252,40 @@ export default function Categories() {
                       variant="ghost" 
                       size="icon" 
                       className="h-8 w-8"
+                      aria-label={`Edit ${cat.name}`}
                       onClick={() => handleOpenDialog(cat.id)}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(cat.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          aria-label="Delete category"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete category?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete "{cat.name}". This action can't be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(cat.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 )}
               </div>
@@ -254,7 +299,7 @@ export default function Categories() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Income Categories</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-1.5">
           {incomeCategories.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">No income categories</p>
           ) : (
@@ -275,18 +320,40 @@ export default function Categories() {
                       variant="ghost" 
                       size="icon" 
                       className="h-8 w-8"
+                      aria-label={`Edit ${cat.name}`}
                       onClick={() => handleOpenDialog(cat.id)}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(cat.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          aria-label="Delete category"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete category?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete "{cat.name}". This action can't be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(cat.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 )}
               </div>

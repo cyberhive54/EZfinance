@@ -45,7 +45,7 @@ export function OverallBudgetCard({
 
   return (
     <Card 
-      className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent cursor-pointer active:scale-[0.99] transition-transform" 
+      className="cursor-pointer border-primary/20 transition-colors hover:border-primary/40" 
       onClick={() => onView(budget)}
     >
       <CardHeader className="pb-2 px-3 pt-3 sm:px-6 sm:pt-6">

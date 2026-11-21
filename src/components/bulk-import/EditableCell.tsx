@@ -27,27 +27,30 @@ export default function EditableCell({ value, onChange, hasError }: EditableCell
       <div className="flex items-center gap-1">
         <Input
           value={editValue}
+          aria-label="Edit cell value"
           onChange={(e) => setEditValue(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") handleSave();
             if (e.key === "Escape") handleCancel();
           }}
-          className={`h-8 text-xs ${hasError ? "border-red-500" : ""}`}
+          className={`h-8 text-xs ${hasError ? "border-destructive" : ""}`}
           autoFocus
         />
         <button
+          type="button"
           onClick={handleSave}
-          className="p-1 hover:bg-green-500/20 rounded transition-colors"
-          title="Save"
+          aria-label="Save cell value"
+          className="p-1 rounded transition-colors hover:bg-success/20"
         >
-          <Check className="h-3 w-3 text-green-600" />
+          <Check className="h-3 w-3 text-success" aria-hidden="true" />
         </button>
         <button
+          type="button"
           onClick={handleCancel}
-          className="p-1 hover:bg-red-500/20 rounded transition-colors"
-          title="Cancel"
+          aria-label="Cancel editing"
+          className="p-1 rounded transition-colors hover:bg-destructive/20"
         >
-          <X className="h-3 w-3 text-red-600" />
+          <X className="h-3 w-3 text-destructive" aria-hidden="true" />
         </button>
       </div>
     );
@@ -55,9 +58,18 @@ export default function EditableCell({ value, onChange, hasError }: EditableCell
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Cell value: ${value || "empty"}. Press Enter to edit.`}
       onClick={() => setIsEditing(true)}
-      className={`p-1 rounded cursor-pointer hover:bg-muted transition-colors text-xs font-mono max-w-[150px] truncate ${
-        hasError ? "text-red-600 font-semibold" : ""
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setIsEditing(true);
+        }
+      }}
+      className={`p-1 rounded cursor-pointer transition-colors hover:bg-muted text-xs font-mono max-w-[150px] truncate ${
+        hasError ? "font-semibold text-destructive" : ""
       }`}
       title="Click to edit"
     >

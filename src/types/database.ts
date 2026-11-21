@@ -56,13 +56,37 @@ export interface Transaction {
   updated_at: string;
 }
 
+export interface Goal {
+  id: string;
+  user_id: string;
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  deadline: string | null;
+  status: string;
+  is_archived: boolean;
+  color: string | null;
+  icon: string | null;
+  priority_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Payload accepted when creating a transaction; goal links are optional. */
+export type NewTransaction = Omit<
+  Transaction,
+  "id" | "user_id" | "created_at" | "updated_at" | "goal_id" | "goal_amount" | "goal_allocation_type"
+> &
+  Partial<Pick<Transaction, "goal_id" | "goal_amount" | "goal_allocation_type">>;
+
 export interface TransactionAttachment {
   id: string;
   transaction_id: string;
   user_id: string;
   cloudinary_public_id: string;
   cloudinary_url: string;
-  original_filename: string;
+  file_name: string;
+  file_type: string;
   file_size: number;
   created_at: string;
 }

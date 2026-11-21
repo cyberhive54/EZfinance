@@ -34,7 +34,7 @@ export function useTransactionAttachments(transactionId?: string) {
         transactionId: attachment.transaction_id,
         userId: user?.id,
         publicId: attachment.cloudinary_public_id?.substring(0, 20) + "***",
-        fileName: attachment.original_filename,
+        fileName: attachment.file_name,
         fileSize: `${(attachment.file_size / 1024 / 1024).toFixed(2)}MB`,
         timestamp: new Date().toISOString(),
       });

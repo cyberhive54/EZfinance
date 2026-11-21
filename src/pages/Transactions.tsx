@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { isSafeHttpsUrl } from "@/lib/utils";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useGoals, Goal } from "@/hooks/useGoals";
@@ -11,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -25,6 +26,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { uploadTransactionAttachment } from "@/utils/cloudinary";
 import { supabase } from "@/integrations/supabase/client";
 import { useTransactionAttachments } from "@/hooks/useTransactionAttachments";
+import { ErrorState, useQueryError } from "@/components/ui/error-state";
 import { FileImage } from "lucide-react";
 
 type SortField = "date_created" | "amount" | "transaction_date";
@@ -57,6 +59,7 @@ function AttachmentCell({ transactionId }: { transactionId: string }) {
   }
 
   const handleDownload = (url: string, fileName: string) => {
+    if (!isSafeHttpsUrl(url)) return;
     const link = document.createElement('a');
     link.href = url;
     link.download = fileName;
@@ -75,7 +78,8 @@ function AttachmentCell({ transactionId }: { transactionId: string }) {
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Transaction Attachments ({attachments.length})</DialogTitle>
+          <DialogTitle>Transaction attachments ({attachments.length})</DialogTitle>
+          <DialogDescription>View or download the receipts attached to this transaction.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3 max-h-96 overflow-y-auto p-4">
           {attachments.map((attachment) => (
@@ -96,7 +100,7 @@ function AttachmentCell({ transactionId }: { transactionId: string }) {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <a 
-                  href={attachment.cloudinary_url} 
+                  href={isSafeHttpsUrl(attachment.cloudinary_url) ? attachment.cloudinary_url : "#"}
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="p-2 hover:bg-background rounded transition-colors"
@@ -127,6 +131,7 @@ export default function Transactions() {
   const { accounts } = useAccounts();
   const { goals } = useGoals();
   const { preferredCurrency } = useProfile();
+  const transactionsError = useQueryError("transactions");
   const currencySymbol = getCurrencySymbol(preferredCurrency);
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -167,7 +172,7 @@ export default function Transactions() {
     category_id: "",
     description: "",
     transaction_date: format(new Date(), "yyyy-MM-dd"),
-    frequency: "none" as "none" | "daily" | "alternate_days" | "weekly" | "monthly" | "yearly",
+    frequency: "none" as "none" | "daily" | "weekly" | "monthly" | "yearly",
     notes: "",
   });
 
@@ -633,6 +638,9 @@ export default function Transactions() {
 
   // Check loading AFTER all hooks are declared
   if (isLoading) return <TransactionsSkeleton />;
+  if (transactionsError) {
+    return <ErrorState message="We couldn't load your transactions. Check your connection and try again." />;
+  }
 
   const incomeCategories = categories.filter((c) => c.type === "income");
   const expenseCategories = categories.filter((c) => c.type === "expense");
@@ -662,16 +670,16 @@ export default function Transactions() {
             if (!open) resetEditState(); 
           }}>
             <DialogTrigger asChild>
-              <Button size="icon" className="md:hidden"><Plus className="h-5 w-5" /></Button>
-            </DialogTrigger>
-            <DialogTrigger asChild>
-              <Button className="hidden md:flex"><Plus className="mr-2 h-4 w-4" />{editingTransaction ? "Edit" : "Add"} Transaction</Button>
+              <Button aria-label={editingTransaction ? "Edit Transaction" : "Add Transaction"}>
+                <Plus className="h-4 w-4" />
+                <span className="hidden md:inline">{editingTransaction ? "Edit" : "Add"} Transaction</span>
+              </Button>
             </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
             <DialogHeader>
               <DialogTitle>{editingTransaction ? "Edit" : "Add"} Transaction</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3">
               <Tabs value={formData.type} onValueChange={(v) => handleTypeChange(v as "income" | "expense")}>
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="expense">Expense</TabsTrigger>
@@ -680,7 +688,7 @@ export default function Transactions() {
               </Tabs>
 
               {/* Title - Top */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Title <span className="text-destructive">*</span></Label>
                 <Input 
                   placeholder="e.g., Grocery shopping"
@@ -691,8 +699,8 @@ export default function Transactions() {
               </div>
 
               {/* Amount & Transaction Date - Half Width */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
                   <Label>Amount <span className="text-destructive">*</span></Label>
                   <CurrencyInput 
                     currencySymbol={currencySymbol}
@@ -702,7 +710,7 @@ export default function Transactions() {
                     required 
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label>Transaction Date <span className="text-destructive">*</span></Label>
                   <Popover>
                     <PopoverTrigger asChild>
@@ -731,20 +739,20 @@ export default function Transactions() {
               </div>
 
               {/* Account & Category - Half Width */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
                   <Label>Account <span className="text-destructive">*</span></Label>
                   <Select value={formData.account_id} onValueChange={(v) => setFormData({ ...formData, account_id: v })}>
-                    <SelectTrigger className={!formData.account_id ? "border-destructive" : ""}><SelectValue placeholder="Select account" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
                     <SelectContent>
                       {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label>Category <span className="text-destructive">*</span></Label>
                   <Select value={formData.category_id} onValueChange={(v) => setFormData({ ...formData, category_id: v })}>
-                    <SelectTrigger className={!formData.category_id ? "border-destructive" : ""}><SelectValue placeholder="Select category" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                     <SelectContent>
                       {(formData.type === "income" ? incomeCategories : expenseCategories).map((c) => (
                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -755,24 +763,22 @@ export default function Transactions() {
               </div>
 
               {/* Frequency & Notes */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Frequency</Label>
-                  <Select value={formData.frequency} onValueChange={(v: any) => setFormData({ ...formData, frequency: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="yearly">Yearly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-1.5">
+                <Label>Frequency</Label>
+                <Select value={formData.frequency} onValueChange={(v: any) => setFormData({ ...formData, frequency: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="yearly">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Notes */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Notes</Label>
                 <Input 
                   placeholder="Add notes for this transaction..."
@@ -782,7 +788,7 @@ export default function Transactions() {
               </div>
 
               {/* Attachments */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Attachments</Label>
                 <div className="flex items-center gap-2">
                   <Input 
@@ -837,7 +843,7 @@ export default function Transactions() {
                         <div key={attachment.id} className="flex items-center gap-2 text-sm">
                           <FileImage className="h-3 w-3 text-accent" />
                           <a
-                            href={attachment.cloudinary_url}
+                            href={isSafeHttpsUrl(attachment.cloudinary_url) ? attachment.cloudinary_url : "#"}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-accent hover:underline truncate flex-1"
@@ -895,7 +901,7 @@ export default function Transactions() {
                   {goalEnabled && (
                     <div className="space-y-3 pt-2">
                       {/* Goal Select */}
-                      <div className="space-y-2">
+                      <div className="space-y-1.5">
                         <Label className="text-sm">Select Goal</Label>
                         <Select value={selectedGoalId} onValueChange={setSelectedGoalId}>
                           <SelectTrigger>
@@ -919,7 +925,7 @@ export default function Transactions() {
                       {selectedGoalId && (
                         <>
                           {/* Allocation Type */}
-                          <div className="space-y-2">
+                          <div className="space-y-1.5">
                             <Label className="text-sm">Allocation</Label>
                             <Tabs value={goalAllocationType} onValueChange={(v) => setGoalAllocationType(v as "all" | "split")}>
                               <TabsList className="grid w-full grid-cols-2">
@@ -931,7 +937,7 @@ export default function Transactions() {
 
                           {/* Split Amount */}
                           {goalAllocationType === "split" && (
-                            <div className="space-y-2">
+                            <div className="space-y-1.5">
                               <Label className="text-sm">
                                 Amount to {formData.type === "income" ? "contribute" : "deduct"}
                               </Label>
@@ -1002,13 +1008,16 @@ export default function Transactions() {
           </Select>
 
           {/* Account Filter with Search */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <Popover>
+            <PopoverTrigger asChild>
               <Button variant="outline" className="w-full lg:w-auto min-w-[130px]">
-                Account {(accountFilter !== "all") && "✓"}
+                Account
+                {accountFilter !== "all" && (
+                  <><span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" /><span className="sr-only">(active)</span></>
+                )}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 p-4" align="end">
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-4" align="end">
               <div className="space-y-3">
                 <Input
                   placeholder="Search accounts..."
@@ -1042,17 +1051,20 @@ export default function Transactions() {
                     ))}
                 </div>
               </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </PopoverContent>
+          </Popover>
 
           {/* Category Filter with Tabs */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <Popover>
+            <PopoverTrigger asChild>
               <Button variant="outline" className="w-full lg:w-auto min-w-[130px]">
-                Category {(categoryFilter !== "all") && "✓"}
+                Category
+                {categoryFilter !== "all" && (
+                  <><span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" /><span className="sr-only">(active)</span></>
+                )}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 p-4" align="end">
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-4" align="end">
               <div className="space-y-3">
                 <Input
                   placeholder="Search categories..."
@@ -1110,17 +1122,20 @@ export default function Transactions() {
                     ))}
                 </div>
               </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </PopoverContent>
+          </Popover>
 
           {/* Frequency Filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <Popover>
+            <PopoverTrigger asChild>
               <Button variant="outline" className="w-full lg:w-auto">
-                Frequency {(frequencyFilter !== "all") && "✓"}
+                Frequency
+                {frequencyFilter !== "all" && (
+                  <><span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" /><span className="sr-only">(active)</span></>
+                )}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-48 p-4" align="end">
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-4" align="end">
               <div className="space-y-1">
                 <button
                   onClick={() => {
@@ -1178,17 +1193,20 @@ export default function Transactions() {
                   Yearly
                 </button>
               </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </PopoverContent>
+          </Popover>
 
           {/* Amount Range Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <Popover>
+            <PopoverTrigger asChild>
               <Button variant="outline" className="w-full lg:w-auto">
-                Amount {(amountMin !== null || amountMax !== null) && "✓"}
+                Amount
+                {(amountMin !== null || amountMax !== null) && (
+                  <><span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" /><span className="sr-only">(active)</span></>
+                )}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-64 p-4" align="end">
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-4" align="end">
               <div className="space-y-3">
                 <div>
                   <Label className="text-xs text-muted-foreground">Min Amount</Label>
@@ -1215,17 +1233,20 @@ export default function Transactions() {
                   />
                 </div>
               </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </PopoverContent>
+          </Popover>
 
           {/* Transaction Date Filter Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <Popover>
+            <PopoverTrigger asChild>
               <Button variant="outline" className="w-full lg:w-auto">
-                Date {(dateFilterType !== "all") && "✓"}
+                Date
+                {dateFilterType !== "all" && (
+                  <><span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" /><span className="sr-only">(active)</span></>
+                )}
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-80 p-4" align="end">
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-4" align="end">
               <div className="space-y-3">
                 <Select value={dateFilterType} onValueChange={(v: any) => {
                   setDateFilterType(v);
@@ -1361,7 +1382,7 @@ export default function Transactions() {
 
                 {/* Custom Year */}
                 {dateFilterType === "custom-year" && (
-                  <div className="space-y-2 border-t pt-3">
+                  <div className="space-y-1.5 border-t pt-3">
                     <Label className="text-xs text-muted-foreground">Year</Label>
                     <Input
                       type="number"
@@ -1377,8 +1398,8 @@ export default function Transactions() {
                   </div>
                 )}
               </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </PopoverContent>
+          </Popover>
 
           {/* Clear Filters Button - Show when 2+ filters active */}
           {((typeFilter !== "all" ? 1 : 0) + (paymentMethodFilter !== "all" ? 1 : 0) + (categoryFilter !== "all" ? 1 : 0) + (frequencyFilter !== "all" ? 1 : 0) + (amountMin !== null || amountMax !== null ? 1 : 0) + (dateFilterType !== "all" ? 1 : 0) + (searchQuery ? 1 : 0)) >= 2 && (
@@ -1617,14 +1638,9 @@ export default function Transactions() {
               >
                 Previous
               </Button>
-              <Button
-                variant={currentPage === totalPages ? "outline" : "default"}
-                size="sm"
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-              >
-                {currentPage === totalPages ? currentPage : currentPage}
-              </Button>
+              <span className="px-2 text-sm tabular-nums text-muted-foreground" aria-live="polite">
+                Page {currentPage} of {totalPages}
+              </span>
               <Button
                 variant="outline"
                 size="sm"

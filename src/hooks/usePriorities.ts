@@ -13,12 +13,12 @@ export interface Priority {
   created_at: string;
 }
 
-// Default priorities with colors (Blue, Yellow, Orange, Red)
+// Deliberate Apple system colors: neutral → blue → orange → red.
 export const DEFAULT_PRIORITIES = [
-  { name: "Low", color: "#3b82f6", sort_order: 0 },
-  { name: "Medium", color: "#eab308", sort_order: 1 },
-  { name: "High", color: "#f97316", sort_order: 2 },
-  { name: "Critical", color: "#ef4444", sort_order: 3 },
+  { name: "Low", color: "#8E8E93", sort_order: 0 },
+  { name: "Medium", color: "#0A84FF", sort_order: 1 },
+  { name: "High", color: "#FF9F0A", sort_order: 2 },
+  { name: "Critical", color: "#FF453A", sort_order: 3 },
 ];
 
 export const usePriorities = () => {

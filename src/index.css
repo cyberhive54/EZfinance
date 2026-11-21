@@ -1,169 +1,230 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-Modern, Professional, Minimalist Design */
+/*
+  Design tokens — Apple-native reference.
+  unslop-ignore: system font stack is a deliberate choice from the Apple reference.
+  Palette is a single cool neutral ramp + one blue accent (never violet/indigo).
+*/
 
 @layer base {
   :root {
-    /* Light theme - Clean and professional */
     --background: 0 0% 100%;
-    --foreground: 220 13% 20%;
+    --foreground: 222 22% 14%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 13% 20%;
+    --card-foreground: 222 22% 14%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 13% 20%;
+    --popover-foreground: 222 22% 14%;
 
-    /* Primary: Deep blue - professional and trustworthy */
-    --primary: 217 91% 40%;
+    --primary: 211 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary: Light gray - subtle, minimalist */
     --secondary: 220 14% 96%;
-    --secondary-foreground: 220 13% 20%;
+    --secondary-foreground: 222 22% 14%;
 
-    /* Muted: Soft gray for inactive states */
-    --muted: 220 13% 91%;
-    --muted-foreground: 220 8% 56%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 45%;
 
-    /* Accent: Modern teal - attention without harshness */
-    --accent: 174 75% 50%;
+    --accent: 174 80% 32%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 77% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 217 91% 40%;
+    --success: 158 74% 30%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 90% 36%;
+    --warning-foreground: 0 0% 100%;
+    --info: 205 90% 38%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 220 14% 90%;
+    --input: 220 14% 90%;
+    --ring: 211 100% 50%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 220 14% 96%;
-    --sidebar-foreground: 220 13% 20%;
-    --sidebar-primary: 217 91% 40%;
+    --sidebar-background: 220 16% 97%;
+    --sidebar-foreground: 222 22% 14%;
+    --sidebar-primary: 211 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 174 75% 50%;
+    --sidebar-accent: 174 80% 32%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217 91% 40%;
+    --sidebar-border: 220 14% 90%;
+    --sidebar-ring: 211 100% 50%;
+
+    /* Elevation: one soft, offset shadow for floating layers only. */
+    --shadow-float: 0 8px 30px -12px hsl(222 30% 10% / 0.22);
   }
 
   .dark {
-    /* Dark theme - Sophisticated and modern */
-    --background: 220 17% 12%;
-    --foreground: 220 13% 92%;
+    --background: 222 18% 10%;
+    --foreground: 220 16% 94%;
 
-    --card: 220 15% 18%;
-    --card-foreground: 220 13% 92%;
+    --card: 222 16% 14%;
+    --card-foreground: 220 16% 94%;
 
-    --popover: 220 15% 18%;
-    --popover-foreground: 220 13% 92%;
+    --popover: 222 16% 16%;
+    --popover-foreground: 220 16% 94%;
 
-    --primary: 217 91% 50%;
-    --primary-foreground: 220 17% 12%;
+    --primary: 211 100% 62%;
+    --primary-foreground: 222 24% 10%;
 
-    --secondary: 220 15% 25%;
-    --secondary-foreground: 220 13% 92%;
+    --secondary: 220 12% 20%;
+    --secondary-foreground: 220 16% 94%;
 
-    --muted: 220 11% 35%;
-    --muted-foreground: 220 8% 70%;
+    --muted: 220 12% 20%;
+    --muted-foreground: 220 10% 68%;
 
-    --accent: 174 75% 55%;
-    --accent-foreground: 220 17% 12%;
+    --accent: 174 70% 46%;
+    --accent-foreground: 222 24% 10%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 220 17% 12%;
+    --destructive: 0 80% 62%;
+    --destructive-foreground: 222 24% 10%;
 
-    --border: 220 15% 25%;
-    --input: 220 15% 25%;
-    --ring: 217 91% 50%;
+    --success: 158 64% 48%;
+    --success-foreground: 222 24% 10%;
+    --warning: 36 92% 58%;
+    --warning-foreground: 222 24% 10%;
+    --info: 205 90% 62%;
+    --info-foreground: 222 24% 10%;
 
-    --sidebar-background: 220 17% 12%;
-    --sidebar-foreground: 220 13% 92%;
-    --sidebar-primary: 217 91% 50%;
-    --sidebar-primary-foreground: 220 17% 12%;
-    --sidebar-accent: 174 75% 55%;
-    --sidebar-accent-foreground: 220 17% 12%;
-    --sidebar-border: 220 15% 25%;
-    --sidebar-ring: 217 91% 50%;
+    --border: 220 10% 24%;
+    --input: 220 10% 24%;
+    --ring: 211 100% 62%;
+
+    --sidebar-background: 222 18% 8%;
+    --sidebar-foreground: 220 16% 94%;
+    --sidebar-primary: 211 100% 62%;
+    --sidebar-primary-foreground: 222 24% 10%;
+    --sidebar-accent: 174 70% 46%;
+    --sidebar-accent-foreground: 222 24% 10%;
+    --sidebar-border: 220 10% 24%;
+    --sidebar-ring: 211 100% 62%;
+
+    --shadow-float: 0 10px 34px -12px hsl(222 50% 2% / 0.7);
   }
 }
 
-/* Custom Scrollbar */
 @layer base {
   * {
     @apply border-border;
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
-  }
-
-  *::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  *::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  *::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--muted-foreground) / 0.3);
-    border-radius: 3px;
-  }
-
-  *::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(var(--muted-foreground) / 0.5);
   }
 
   html {
-    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-optical-sizing: auto;
   }
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
-    font-weight: 400;
-    letter-spacing: -0.3px;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    letter-spacing: 0;
   }
 
+  /* Size-specific tracking: tighter as type grows, never one fixed value. */
   h1, h2, h3, h4, h5, h6 {
-    font-weight: 700;
-    letter-spacing: -0.5px;
+    font-weight: 650;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
   }
 
-  h1 {
-    @apply text-4xl;
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.375rem; }
+  h3 { font-size: 1.125rem; }
+  h4 { font-size: 1rem; }
+
+  /* Numeric data lines up in tables and summary rows. */
+  .tabular-nums, [data-numeric] {
+    font-variant-numeric: tabular-nums;
   }
 
-  h2 {
-    @apply text-3xl;
+  /* Focus: visible, never a glow. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
 
-  h3 {
-    @apply text-2xl;
+  /* Press feedback lives on pointer-down, not on release. */
+  button:not(:disabled), [role='button']:not([aria-disabled='true']) {
+    transition: transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1),
+                background-color 140ms ease-out,
+                border-color 140ms ease-out,
+                opacity 140ms ease-out;
   }
 
-  button {
-    font-weight: 600;
-    letter-spacing: -0.2px;
+  button:not(:disabled):active, [role='button']:not([aria-disabled='true']):active {
+    transform: scale(0.975);
   }
 
-  /* Remove number input spinners */
-  input[type="number"]::-webkit-inner-spin-button,
-  input[type="number"]::-webkit-outer-spin-button {
+  /* Browser surfaces that ship with every page, themed from the palette. */
+  ::selection {
+    background: hsl(var(--primary) / 0.22);
+    color: hsl(var(--foreground));
+  }
+
+  input, textarea {
+    caret-color: hsl(var(--primary));
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.28) transparent;
+  }
+
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.28);
+    border-radius: 999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.45);
+  }
+
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
     -webkit-appearance: none;
     margin: 0;
   }
-
-  input[type="number"] {
+  input[type='number'] {
     -moz-appearance: textfield;
     appearance: textfield;
+  }
+}
+
+/* Overlay motion: state change, not decoration. Interruptible via short ease-out. */
+@layer utilities {
+  .overlay-surface {
+    box-shadow: var(--shadow-float);
+  }
+
+  .surface-divider {
+    border-color: hsl(var(--border) / 0.8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  button:not(:disabled):active, [role='button']:not([aria-disabled='true']):active {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .overlay-surface, [data-state='open'] {
+    backdrop-filter: none !important;
   }
 }

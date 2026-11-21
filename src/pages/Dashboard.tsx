@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -29,6 +28,8 @@ import {
   Calendar as CalendarIcon,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
+import { CATEGORICAL_COLORS } from "@/lib/palette";
+import { ErrorState } from "@/components/ui/error-state";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 type TransactionLayout = "grid" | "list";
@@ -50,7 +51,7 @@ export default function Dashboard() {
 
   // Then query hooks
   const { preferredCurrency, isLoading: profileLoading } = useProfile();
-  const { accounts: allAccounts, transactions: recentTransactions, totalBalance, monthlyIncome: initialIncome, monthlyExpenses: initialExpenses, isLoading: dashboardLoading } = useDashboardData(preferredCurrency);
+  const { accounts: allAccounts, transactions: recentTransactions, totalBalance, monthlyIncome: initialIncome, monthlyExpenses: initialExpenses, isLoading: dashboardLoading, error: dashboardError } = useDashboardData(preferredCurrency);
   const { accounts } = useAccounts();
   const { categories } = useCategories();
 
@@ -64,8 +65,8 @@ export default function Dashboard() {
     customYear
   );
 
-  // Only show loading state during initial dashboard data load or when accounts/categories are missing
-  const isInitialLoading = profileLoading || dashboardLoading || !accounts || !categories || accounts.length === 0 || categories.length === 0;
+  // A new user with no accounts/categories is a valid empty state, not a loading state.
+  const isInitialLoading = profileLoading || dashboardLoading || !accounts || !categories;
 
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || "there";
   const income = stats?.income || 0;
@@ -141,7 +142,7 @@ export default function Dashboard() {
   })();
 
   // Chart colors
-  const COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
+  const COLORS = [...CATEGORICAL_COLORS];
   const chartConfig = {
     income: {
       label: "Income",
@@ -182,25 +183,29 @@ export default function Dashboard() {
   };
 
   if (isInitialLoading) {
-  return <DashboardSkeleton />;
-}
+    return <DashboardSkeleton />;
+  }
+
+  if (dashboardError) {
+    return <ErrorState message="We couldn't load your dashboard data. Check your connection and try again." />;
+  }
 
   return (
     <div className="space-y-8 pb-4">
       {/* Welcome Header */}
       <div className="space-y-2">
-        <h1 className="text-4xl font-bold text-foreground md:text-5xl">
-          Welcome Back, {firstName} 👋
+        <h1 className="text-2xl font-semibold text-foreground md:text-3xl">
+          Welcome back, {firstName}
         </h1>
-        <p className="text-base text-muted-foreground">This is your Financial Overview Report</p>
+        <p className="text-sm text-muted-foreground">Here's where your money stands.</p>
       </div>
 
       {/* Date Filter */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <Label className="text-sm font-medium">Filter by Date:</Label>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="w-full sm:w-auto">
+        <span className="text-sm font-medium">Filter by date</span>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" aria-label="Filter by date" className="w-full sm:w-auto">
               <CalendarIcon className="mr-2 h-4 w-4" />
               {dateFilterType === "this-month"
                 ? "Current Month"
@@ -220,8 +225,8 @@ export default function Dashboard() {
                               ? "Custom Month"
                               : "Custom Year"}
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-80 p-4" align="start">
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-4" align="start">
             <div className="space-y-3">
               <Select value={dateFilterType} onValueChange={(v: any) => setDateFilterType(v)}>
                 <SelectTrigger>
@@ -349,14 +354,14 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Stats Cards - 4 Column */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {/* Available Balance Card */}
-        <Card className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg">
+        <Card className="bg-primary text-primary-foreground">
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
@@ -371,7 +376,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Total Income Card */}
-        <Card className="shadow-md">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
@@ -387,7 +392,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Total Expense Card */}
-        <Card className="shadow-md">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
@@ -403,7 +408,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Savings Rate Card */}
-        <Card className="shadow-md">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
@@ -459,7 +464,7 @@ export default function Dashboard() {
                       labelLine={false}
                       label={({ name, value }) => `${name} ${formatCurrency(value, preferredCurrency)}`}
                       outerRadius={80}
-                      fill="#8884d8"
+                      fill={COLORS[0]}
                       dataKey="value"
                     >
                       {expensesByCategories.map((_, index) => (
@@ -496,7 +501,7 @@ export default function Dashboard() {
                       labelLine={false}
                       label={({ name, value }) => `${name} ${formatCurrency(value, preferredCurrency)}`}
                       outerRadius={80}
-                      fill="#8884d8"
+                      fill={COLORS[0]}
                       dataKey="value"
                     >
                       {incomeByCategories.map((_, index) => (
@@ -571,7 +576,7 @@ export default function Dashboard() {
         ) : transactionLayout === "grid" ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {recentTransactions.slice(0, 6).map((transaction) => (
-              <Card key={transaction.id} className="overflow-hidden hover:shadow-md transition-shadow">
+              <Card key={transaction.id} className="overflow-hidden transition-colors hover:border-primary/40">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-4">
                     <div

@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBudgets, Budget as BudgetType, BudgetLog, CreateBudgetInput, UpdateBudgetInput } from "@/hooks/useBudgets";
 import { useProfile, formatCurrency } from "@/hooks/useProfile";
 import { BudgetSkeleton } from "@/components/skeletons/PageSkeletons";
+import { ErrorState, useQueryError } from "@/components/ui/error-state";
 import { BudgetCard } from "@/components/budget/BudgetCard";
 import { BudgetFormDialog } from "@/components/budget/BudgetFormDialog";
 import { BudgetHistory } from "@/components/budget/BudgetHistory";
@@ -34,6 +35,7 @@ export default function Budget() {
     fetchBudgetTransactions,
   } = useBudgets();
   const { preferredCurrency } = useProfile();
+  const error = useQueryError("budgets");
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<BudgetType | null>(null);
@@ -52,6 +54,15 @@ export default function Budget() {
 
   if (isLoading) {
     return <BudgetSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4 pb-4">
+        <h1 className="text-xl font-bold text-foreground sm:text-2xl md:text-3xl">Budget</h1>
+        <ErrorState message="We couldn't load your budgets. Check your connection and try again." />
+      </div>
+    );
   }
 
   const handleEdit = (budget: BudgetType) => {

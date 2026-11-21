@@ -6,11 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { usePriorities, DEFAULT_PRIORITIES } from "@/hooks/usePriorities";
 import { Plus, Pencil, Trash2, GripVertical, Check, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CATEGORICAL_COLORS } from "@/lib/palette";
 
-const COLOR_PRESETS = [
-  "#3b82f6", "#22c55e", "#eab308", "#f97316", "#ef4444",
-  "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16", "#6366f1",
-];
+const COLOR_PRESETS: string[] = [...CATEGORICAL_COLORS];
 
 export function PrioritiesSection() {
   const { 

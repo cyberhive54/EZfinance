@@ -28,7 +28,7 @@ export default function HeaderMappingDropdown({
 }: HeaderMappingDropdownProps) {
   return (
     <Select value={value} onValueChange={(val) => onChange(val as HeaderField)}>
-      <SelectTrigger className="w-full">
+      <SelectTrigger aria-label="Map CSV column to a transaction field" className="w-full">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
