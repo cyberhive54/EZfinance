@@ -23,7 +23,7 @@ export function GoalPauseModal({ open, onOpenChange, onPause, isPausing }: GoalP
       <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
           <AlertDialogTitle>Pause this goal?</AlertDialogTitle>
-          <AlertDialogDescription className="space-y-1.5">
+          <AlertDialogDescription className="space-y-2">
             <p>
               This will pause the goal. Instead, you might want to try extending the deadline date.
             </p>

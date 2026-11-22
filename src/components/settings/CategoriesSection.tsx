@@ -144,7 +144,7 @@ export function CategoriesSection() {
   }
 
   const CategoryList = ({ items, emptyText }: { items: typeof categories; emptyText: string }) => (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       {items.length === 0 ? (
         <p className="py-4 text-center text-sm text-muted-foreground">{emptyText}</p>
       ) : (

@@ -231,7 +231,7 @@ export default function Categories() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Expense Categories</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-1.5">
+        <CardContent className="space-y-2">
           {expenseCategories.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">No expense categories</p>
           ) : (
@@ -299,7 +299,7 @@ export default function Categories() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Income Categories</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-1.5">
+        <CardContent className="space-y-2">
           {incomeCategories.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">No income categories</p>
           ) : (

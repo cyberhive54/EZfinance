@@ -184,7 +184,7 @@ export function GoalViewModal({ goal, open, onOpenChange, onEdit, transactions, 
           </DialogHeader>
 
           <ScrollArea className="max-h-[calc(90vh-80px)]">
-            <div className="p-3 sm:p-4 space-y-3 sm:space-y-3">
+            <div className="p-3 sm:p-4 space-y-3">
               {/* Goal Info */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-lg border border-border bg-muted/30 p-3">
@@ -353,7 +353,7 @@ export function GoalViewModal({ goal, open, onOpenChange, onEdit, transactions, 
                     No transactions linked to this goal yet
                   </p>
                 ) : (
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
                     {sortedTransactions.map((t, idx) => (
                       <div
                         key={t.id}
@@ -400,7 +400,7 @@ export function GoalViewModal({ goal, open, onOpenChange, onEdit, transactions, 
                     No activity logged yet
                   </p>
                 ) : (
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
                     {logs.map((log) => (
                       <div
                         key={log.id}

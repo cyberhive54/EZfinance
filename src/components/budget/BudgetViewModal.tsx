@@ -154,7 +154,7 @@ export function BudgetViewModal({
           </DialogHeader>
 
           <ScrollArea className="max-h-[calc(90vh-80px)]">
-            <div className="p-3 sm:p-4 space-y-3 sm:space-y-3">
+            <div className="p-3 sm:p-4 space-y-3">
               {/* Budget Info Grid - responsive */}
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <div className="rounded-lg border border-border bg-muted/30 p-2 sm:p-3">
@@ -252,7 +252,7 @@ export function BudgetViewModal({
                     No transactions for this budget period
                   </p>
                 ) : (
-                  <div className="space-y-1.5 sm:space-y-1.5 max-h-36 sm:max-h-48 overflow-y-auto">
+                  <div className="space-y-1.5 sm:space-y-2 max-h-36 sm:max-h-48 overflow-y-auto">
                     {sortedTransactions.map((t) => (
                       <div
                         key={t.id}
@@ -306,7 +306,7 @@ export function BudgetViewModal({
                     No activity recorded
                   </p>
                 ) : (
-                  <div className="space-y-1.5 sm:space-y-1.5 max-h-24 sm:max-h-32 overflow-y-auto">
+                  <div className="space-y-1.5 sm:space-y-2 max-h-24 sm:max-h-32 overflow-y-auto">
                     {sortedLogs.map((log) => (
                       <div
                         key={log.id}

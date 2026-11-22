@@ -1382,7 +1382,7 @@ export default function Transactions() {
 
                 {/* Custom Year */}
                 {dateFilterType === "custom-year" && (
-                  <div className="space-y-1.5 border-t pt-3">
+                  <div className="space-y-2 border-t pt-3">
                     <Label className="text-xs text-muted-foreground">Year</Label>
                     <Input
                       type="number"

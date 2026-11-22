@@ -156,7 +156,7 @@ export function BudgetFormDialog({
 
           {/* Category Selection - only for category budget */}
           {budgetType === "category" && !isEditing && (
-            <div className="space-y-1.5 sm:space-y-1.5">
+            <div className="space-y-1.5">
               <Label className="text-sm">Category</Label>
               <Select value={categoryId} onValueChange={setCategoryId}>
                 <SelectTrigger className="h-10 sm:h-11">
@@ -172,7 +172,7 @@ export function BudgetFormDialog({
           )}
 
           {/* Amount */}
-          <div className="space-y-1.5 sm:space-y-1.5">
+          <div className="space-y-1.5">
             <Label className="text-sm">Budget Amount</Label>
             <Input 
               type="number" 
@@ -186,7 +186,7 @@ export function BudgetFormDialog({
           </div>
 
           {/* Period Selection */}
-          <div className="space-y-1.5 sm:space-y-1.5">
+          <div className="space-y-1.5">
             <Label className="text-sm">Period</Label>
             <Select value={period} onValueChange={(v) => setPeriod(v as BudgetPeriod)}>
               <SelectTrigger className="h-10 sm:h-11">
@@ -203,7 +203,7 @@ export function BudgetFormDialog({
           {/* Custom Date Range */}
           {period === "custom" && (
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
-              <div className="space-y-1.5 sm:space-y-1.5">
+              <div className="space-y-1.5">
                 <Label className="text-sm">Start</Label>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -228,7 +228,7 @@ export function BudgetFormDialog({
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className="space-y-1.5 sm:space-y-1.5">
+              <div className="space-y-1.5">
                 <Label className="text-sm">End</Label>
                 <Popover>
                   <PopoverTrigger asChild>

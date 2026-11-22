@@ -74,9 +74,9 @@ export function PreferencesSection() {
           <Switch checked={theme === "dark"} onCheckedChange={toggleTheme} />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {/* Timezone */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label>Timezone</Label>
             <Select value={profile?.timezone || "UTC"} onValueChange={handleTimezoneChange}>
               <SelectTrigger>
@@ -93,7 +93,7 @@ export function PreferencesSection() {
           </div>
 
           {/* Currency */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label>Currency</Label>
             <Select value={preferredCurrency} onValueChange={handleCurrencyChange}>
               <SelectTrigger>
@@ -110,7 +110,7 @@ export function PreferencesSection() {
           </div>
 
           {/* Default Account */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label>Default Account</Label>
             <Select
               value={profile?.default_account_id || "none"}

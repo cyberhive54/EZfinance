@@ -94,7 +94,7 @@ function GoalForm({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="goal-start">Start Date (optional)</Label>
           <Input
@@ -414,7 +414,7 @@ export default function Goals() {
       </div>
 
       {/* Summary Cards - Responsive */}
-      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
